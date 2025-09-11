@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React from 'react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { ProcessingStep } from '@/lib/types/conciliacion'
 

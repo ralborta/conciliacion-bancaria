@@ -1,8 +1,8 @@
 import { MatchResult, ConciliationStats, UploadedFile } from '@/lib/types/conciliacion'
 
 export interface StorageAdapter {
-  saveSession(sessionId: string, data: any): Promise<void>
-  getSession(sessionId: string): Promise<any>
+  saveSession(sessionId: string, data: Record<string, unknown>): Promise<void>
+  getSession(sessionId: string): Promise<Record<string, unknown> | null>
   saveResults(sessionId: string, results: MatchResult[]): Promise<void>
   getResults(sessionId: string): Promise<MatchResult[]>
   saveStats(sessionId: string, stats: ConciliationStats): Promise<void>

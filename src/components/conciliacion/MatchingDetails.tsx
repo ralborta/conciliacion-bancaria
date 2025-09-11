@@ -98,7 +98,7 @@ export default function MatchingDetails({
                 <div className="col-span-2">
                   <span className="text-gray-600">Referencia:</span>
                   <span className="ml-2 font-mono text-xs">
-                    {result.matchedWith.referenciaExterna || '-'}
+                    {'referenciaExterna' in result.matchedWith ? result.matchedWith.referenciaExterna || '-' : '-'}
                   </span>
                 </div>
               </div>

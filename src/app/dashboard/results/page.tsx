@@ -1,14 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import StatsCard from '@/components/dashboard/StatsCard'
 import ResultsTable from '@/components/conciliacion/ResultsTable'
 import MatchingDetails from '@/components/conciliacion/MatchingDetails'
 import { MatchResult, ConciliationStats } from '@/lib/types/conciliacion'
-import { Download } from 'lucide-react'
 
-export default function ResultsPage() {
+function ResultsContent() {
   const searchParams = useSearchParams()
   const sessionId = searchParams.get('sessionId')
   
@@ -20,7 +19,7 @@ export default function ResultsPage() {
     montoTotal: 0,
     porcentajeConciliacion: 0
   })
-  const [selectedResult, setSelectedResult] = useState<MatchResult | null>(null)
+  const [selectedResult] = useState<MatchResult | null>(null)
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
   const [loading, setLoading] = useState(true)
 
@@ -66,10 +65,6 @@ export default function ResultsPage() {
     }
   }
 
-  const handleRowClick = (result: MatchResult) => {
-    setSelectedResult(result)
-    setIsDetailsOpen(true)
-  }
 
   const handleAcceptMatch = (result: MatchResult) => {
     setResults(prev => 
@@ -150,5 +145,20 @@ export default function ResultsPage() {
         onReject={handleRejectMatch}
       />
     </div>
+  )
+}
+
+export default function ResultsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Cargando resultados...</p>
+        </div>
+      </div>
+    }>
+      <ResultsContent />
+    </Suspense>
   )
 }

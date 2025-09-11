@@ -46,7 +46,7 @@ export class ConciliationEngine {
     }
   }
 
-  private async parseFile(file: File): Promise<any[]> {
+  private async parseFile(file: File): Promise<Record<string, unknown>[]> {
     const extension = file.name.split('.').pop()?.toLowerCase()
     
     if (extension === 'csv') {
@@ -58,7 +58,7 @@ export class ConciliationEngine {
     }
   }
 
-  private async parseCSV(file: File): Promise<any[]> {
+  private async parseCSV(file: File): Promise<Record<string, unknown>[]> {
     const Papa = await import('papaparse')
     return new Promise((resolve, reject) => {
       Papa.parse(file, {
@@ -67,7 +67,7 @@ export class ConciliationEngine {
           if (results.errors.length > 0) {
             reject(new Error('Error al parsear CSV'))
           } else {
-            resolve(results.data)
+            resolve(results.data as Record<string, unknown>[])
           }
         },
         error: (error) => reject(error)
@@ -75,14 +75,14 @@ export class ConciliationEngine {
     })
   }
 
-  private async parseExcel(file: File): Promise<any[]> {
+  private async parseExcel(file: File): Promise<Record<string, unknown>[]> {
     const ExcelJS = await import('exceljs')
     const workbook = new ExcelJS.Workbook()
     const buffer = await file.arrayBuffer()
     await workbook.xlsx.load(buffer)
     
     const worksheet = workbook.worksheets[0]
-    const rows: any[] = []
+    const rows: Record<string, unknown>[] = []
     
     // Get headers from first row
     const headers: string[] = []
@@ -94,7 +94,7 @@ export class ConciliationEngine {
     worksheet.eachRow((row, rowNumber) => {
       if (rowNumber === 1) return // Skip header
       
-      const rowData: any = {}
+      const rowData: Record<string, unknown> = {}
       row.eachCell((cell, colNumber) => {
         const header = headers[colNumber - 1]
         if (header) {
@@ -107,59 +107,59 @@ export class ConciliationEngine {
     return rows
   }
 
-  private normalizeVentas(data: any[]): VentaCanon[] {
+  private normalizeVentas(data: Record<string, unknown>[]): VentaCanon[] {
     return data.map((item, index) => ({
       id: `venta_${index}`,
-      fechaEmision: new Date(item.fecha_emision || item.fecha),
-      fechaCobroEstimada: item.fecha_cobro ? new Date(item.fecha_cobro) : undefined,
-      medioCobro: item.medio_cobro || item.medio || 'Transferencia',
-      moneda: item.moneda || 'ARS',
-      neto: parseFloat(item.neto || item.subtotal || 0),
-      iva: item.iva ? parseFloat(item.iva) : undefined,
-      total: parseFloat(item.total || item.monto || 0),
-      cuitCliente: item.cuit_cliente || item.cuit,
-      cbuCvuCliente: item.cbu_cliente || item.cbu,
-      referenciaExterna: item.referencia || item.ref
+      fechaEmision: new Date(String(item.fecha_emision || item.fecha)),
+      fechaCobroEstimada: item.fecha_cobro ? new Date(String(item.fecha_cobro)) : undefined,
+      medioCobro: String(item.medio_cobro || item.medio || 'Transferencia'),
+      moneda: String(item.moneda || 'ARS'),
+      neto: parseFloat(String(item.neto || item.subtotal || 0)),
+      iva: item.iva ? parseFloat(String(item.iva)) : undefined,
+      total: parseFloat(String(item.total || item.monto || 0)),
+      cuitCliente: item.cuit_cliente ? String(item.cuit_cliente) : undefined,
+      cbuCvuCliente: item.cbu_cliente ? String(item.cbu_cliente) : undefined,
+      referenciaExterna: item.referencia ? String(item.referencia) : undefined
     }))
   }
 
-  private normalizeCompras(data: any[]): CompraCanon[] {
+  private normalizeCompras(data: Record<string, unknown>[]): CompraCanon[] {
     return data.map((item, index) => ({
       id: `compra_${index}`,
-      fechaEmision: new Date(item.fecha_emision || item.fecha),
-      fechaPagoEstimada: item.fecha_pago ? new Date(item.fecha_pago) : undefined,
-      formaPago: item.forma_pago || item.medio || 'Transferencia',
-      moneda: item.moneda || 'ARS',
-      neto: parseFloat(item.neto || item.subtotal || 0),
-      iva: item.iva ? parseFloat(item.iva) : undefined,
-      total: parseFloat(item.total || item.monto || 0),
-      cuitProveedor: item.cuit_proveedor || item.cuit,
-      cbuCvuProveedor: item.cbu_proveedor || item.cbu,
-      ordenPago: item.orden_pago || item.op
+      fechaEmision: new Date(String(item.fecha_emision || item.fecha)),
+      fechaPagoEstimada: item.fecha_pago ? new Date(String(item.fecha_pago)) : undefined,
+      formaPago: String(item.forma_pago || item.medio || 'Transferencia'),
+      moneda: String(item.moneda || 'ARS'),
+      neto: parseFloat(String(item.neto || item.subtotal || 0)),
+      iva: item.iva ? parseFloat(String(item.iva)) : undefined,
+      total: parseFloat(String(item.total || item.monto || 0)),
+      cuitProveedor: String(item.cuit_proveedor || item.cuit),
+      cbuCvuProveedor: item.cbu_proveedor ? String(item.cbu_proveedor) : undefined,
+      ordenPago: item.orden_pago ? String(item.orden_pago) : undefined
     }))
   }
 
-  private normalizeExtracto(data: any[], banco: string): ExtractoCanon[] {
+  private normalizeExtracto(data: Record<string, unknown>[], banco: string): ExtractoCanon[] {
     const bancoConfig = this.getBancoConfig(banco)
     
     return data.map((item, index) => ({
       id: `extracto_${index}`,
       banco,
-      cuenta: item.cuenta || item.numero_cuenta || '',
-      fechaOperacion: new Date(item[bancoConfig.campos.fecha] || item.fecha),
-      fechaValor: item.fecha_valor ? new Date(item.fecha_valor) : undefined,
-      concepto: item[bancoConfig.campos.concepto] || item.concepto || '',
-      importe: parseFloat(item[bancoConfig.campos.importe] || item.importe || 0),
-      saldo: item.saldo ? parseFloat(item.saldo) : undefined,
-      cuitContraparte: item[bancoConfig.campos.cuit] || item.cuit,
-      cbuCvuContraparte: item[bancoConfig.campos.cbu] || item.cbu,
-      referencia: item[bancoConfig.campos.referencia] || item.referencia
+      cuenta: String(item.cuenta || item.numero_cuenta || ''),
+      fechaOperacion: new Date(String(item[bancoConfig.campos.fecha] || item.fecha)),
+      fechaValor: item.fecha_valor ? new Date(String(item.fecha_valor)) : undefined,
+      concepto: String(item[bancoConfig.campos.concepto] || item.concepto || ''),
+      importe: parseFloat(String(item[bancoConfig.campos.importe] || item.importe || 0)),
+      saldo: item.saldo ? parseFloat(String(item.saldo)) : undefined,
+      cuitContraparte: item[bancoConfig.campos.cuit] ? String(item[bancoConfig.campos.cuit]) : undefined,
+      cbuCvuContraparte: item[bancoConfig.campos.cbu] ? String(item[bancoConfig.campos.cbu]) : undefined,
+      referencia: item[bancoConfig.campos.referencia] ? String(item[bancoConfig.campos.referencia]) : undefined
     }))
   }
 
   private getBancoConfig(banco: string) {
     // Mapeo básico de campos por banco
-    const configs: Record<string, any> = {
+    const configs: Record<string, { campos: Record<string, string> }> = {
       'Santander': {
         campos: {
           fecha: 'fecha_operacion',
@@ -261,7 +261,7 @@ export class ConciliationEngine {
   private calculateMatchScore(
     extracto: ExtractoCanon,
     item: VentaCanon | CompraCanon,
-    tipo: 'venta' | 'compra'
+    _tipo: 'venta' | 'compra'
   ): number {
     let score = 0
     let factors = 0
@@ -278,7 +278,7 @@ export class ConciliationEngine {
     
     // Date match (30% weight)
     const extractoDate = extracto.fechaOperacion
-    const itemDate = 'fechaEmision' in item ? item.fechaEmision : item.fechaEmision
+    const itemDate = item.fechaEmision
     const dateDiff = Math.abs(extractoDate.getTime() - itemDate.getTime()) / (1000 * 60 * 60 * 24)
     
     if (dateDiff <= this.rules.dateTolerance) {
@@ -289,12 +289,12 @@ export class ConciliationEngine {
     factors += 0.3
     
     // CBU/CUIT match (20% weight)
-    if (this.rules.cbuMatch && extracto.cbuCvuContraparte && item.cbuCvuCliente) {
+    if (this.rules.cbuMatch && extracto.cbuCvuContraparte && 'cbuCvuCliente' in item && item.cbuCvuCliente) {
       if (extracto.cbuCvuContraparte === item.cbuCvuCliente) {
         score += 0.2
       }
     }
-    if (this.rules.cuitMatch && extracto.cuitContraparte && item.cuitCliente) {
+    if (this.rules.cuitMatch && extracto.cuitContraparte && 'cuitCliente' in item && item.cuitCliente) {
       if (extracto.cuitContraparte === item.cuitCliente) {
         score += 0.2
       }
@@ -302,7 +302,7 @@ export class ConciliationEngine {
     factors += 0.2
     
     // Reference match (10% weight)
-    if (extracto.referencia && item.referenciaExterna) {
+    if (extracto.referencia && 'referenciaExterna' in item && item.referenciaExterna) {
       if (extracto.referencia === item.referenciaExterna) {
         score += 0.1
       } else if (this.rules.fuzzyMatch) {
@@ -348,7 +348,7 @@ export class ConciliationEngine {
   private getMatchReason(
     extracto: ExtractoCanon,
     item: VentaCanon | CompraCanon,
-    score: number
+    _score: number
   ): string {
     const reasons = []
     
@@ -361,15 +361,15 @@ export class ConciliationEngine {
       reasons.push('Fecha cercana')
     }
     
-    if (extracto.cbuCvuContraparte && item.cbuCvuCliente && extracto.cbuCvuContraparte === item.cbuCvuCliente) {
+    if (extracto.cbuCvuContraparte && 'cbuCvuCliente' in item && item.cbuCvuCliente && extracto.cbuCvuContraparte === item.cbuCvuCliente) {
       reasons.push('CBU coincidente')
     }
     
-    if (extracto.cuitContraparte && item.cuitCliente && extracto.cuitContraparte === item.cuitCliente) {
+    if (extracto.cuitContraparte && 'cuitCliente' in item && item.cuitCliente && extracto.cuitContraparte === item.cuitCliente) {
       reasons.push('CUIT coincidente')
     }
     
-    if (extracto.referencia && item.referenciaExterna && extracto.referencia === item.referenciaExterna) {
+    if (extracto.referencia && 'referenciaExterna' in item && item.referenciaExterna && extracto.referencia === item.referenciaExterna) {
       reasons.push('Referencia exacta')
     }
     

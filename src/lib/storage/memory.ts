@@ -7,13 +7,13 @@ interface SessionData {
   results: MatchResult[]
   stats: ConciliationStats
   files: Record<string, UploadedFile>
-  metadata: any
+  metadata: Record<string, unknown>
 }
 
 export class MemoryStorage implements StorageAdapter {
   private sessions: Map<string, SessionData> = new Map()
 
-  async saveSession(sessionId: string, data: any): Promise<void> {
+  async saveSession(sessionId: string, data: Record<string, unknown>): Promise<void> {
     const existing = this.sessions.get(sessionId) || {
       id: sessionId,
       createdAt: new Date(),
@@ -36,8 +36,9 @@ export class MemoryStorage implements StorageAdapter {
     })
   }
 
-  async getSession(sessionId: string): Promise<any> {
-    return this.sessions.get(sessionId) || null
+  async getSession(sessionId: string): Promise<Record<string, unknown> | null> {
+    const session = this.sessions.get(sessionId)
+    return session ? session as unknown as Record<string, unknown> : null
   }
 
   async saveResults(sessionId: string, results: MatchResult[]): Promise<void> {
