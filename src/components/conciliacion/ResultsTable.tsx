@@ -116,3 +116,5 @@ export default function ResultsTable({ results, onExport, onFilter }: ResultsTab
     </div>
   )
 }
+
+

@@ -1,4 +1,6 @@
 import { VentaCanon, CompraCanon, ExtractoCanon, MatchResult, ProcessOptions, MatchingRules } from '@/lib/types/conciliacion'
+import { ArgentinaMatchingEngine } from './argentinaMatcher'
+import { excelDateToJSDate, extractCUITFromConcept, extractSupplierName } from './bankFormats'
 
 export class ConciliationEngine {
   private rules: MatchingRules
@@ -142,19 +144,31 @@ export class ConciliationEngine {
   private normalizeExtracto(data: Record<string, unknown>[], banco: string): ExtractoCanon[] {
     const bancoConfig = this.getBancoConfig(banco)
     
-    return data.map((item, index) => ({
-      id: `extracto_${index}`,
-      banco,
-      cuenta: String(item.cuenta || item.numero_cuenta || ''),
-      fechaOperacion: new Date(String(item[bancoConfig.campos.fecha] || item.fecha)),
-      fechaValor: item.fecha_valor ? new Date(String(item.fecha_valor)) : undefined,
-      concepto: String(item[bancoConfig.campos.concepto] || item.concepto || ''),
-      importe: parseFloat(String(item[bancoConfig.campos.importe] || item.importe || 0)),
-      saldo: item.saldo ? parseFloat(String(item.saldo)) : undefined,
-      cuitContraparte: item[bancoConfig.campos.cuit] ? String(item[bancoConfig.campos.cuit]) : undefined,
-      cbuCvuContraparte: item[bancoConfig.campos.cbu] ? String(item[bancoConfig.campos.cbu]) : undefined,
-      referencia: item[bancoConfig.campos.referencia] ? String(item[bancoConfig.campos.referencia]) : undefined
-    }))
+    return data.map((item, index) => {
+      // Manejar fechas de Excel para Banco Provincia
+      let fechaOperacion: Date
+      if (banco === 'Banco Provincia' && typeof item[bancoConfig.campos.fecha] === 'number') {
+        fechaOperacion = excelDateToJSDate(Number(item[bancoConfig.campos.fecha]))
+      } else {
+        fechaOperacion = new Date(String(item[bancoConfig.campos.fecha] || item.fecha))
+      }
+
+      const concepto = String(item[bancoConfig.campos.concepto] || item.concepto || '')
+      
+      return {
+        id: `extracto_${index}`,
+        banco,
+        cuenta: String(item.cuenta || item.numero_cuenta || ''),
+        fechaOperacion,
+        fechaValor: item.fecha_valor ? new Date(String(item.fecha_valor)) : undefined,
+        concepto,
+        importe: parseFloat(String(item[bancoConfig.campos.importe] || item.importe || 0)),
+        saldo: item.saldo ? parseFloat(String(item.saldo)) : undefined,
+        cuitContraparte: extractCUITFromConcept(concepto) || (item[bancoConfig.campos.cuit] ? String(item[bancoConfig.campos.cuit]) : undefined),
+        cbuCvuContraparte: item[bancoConfig.campos.cbu] ? String(item[bancoConfig.campos.cbu]) : undefined,
+        referencia: item[bancoConfig.campos.referencia] ? String(item[bancoConfig.campos.referencia]) : undefined
+      }
+    })
   }
 
   private getBancoConfig(banco: string) {
@@ -189,6 +203,16 @@ export class ConciliationEngine {
           cuit: 'cuit',
           cbu: 'cbu'
         }
+      },
+      'Banco Provincia': {
+        campos: {
+          fecha: 'A', // Columna A
+          concepto: 'B', // Columna B
+          importe: 'C', // Columna C
+          referencia: 'referencia',
+          cuit: 'cuit',
+          cbu: 'cbu'
+        }
       }
     }
     
@@ -200,62 +224,9 @@ export class ConciliationEngine {
     compras: CompraCanon[],
     extracto: ExtractoCanon[]
   ): MatchResult[] {
-    const matches: MatchResult[] = []
-    
-    for (const extractoItem of extracto) {
-      let bestMatch: MatchResult | null = null
-      let bestScore = 0
-      
-      // Try to match with ventas
-      for (const venta of ventas) {
-        const score = this.calculateMatchScore(extractoItem, venta, 'venta')
-        if (score > bestScore && score >= 0.7) {
-          bestScore = score
-          bestMatch = {
-            id: `match_${extractoItem.id}`,
-            extractoItem,
-            matchedWith: venta,
-            score,
-            status: score >= 0.9 ? 'matched' : 'suggested',
-            tipo: 'venta',
-            reason: this.getMatchReason(extractoItem, venta, score)
-          }
-        }
-      }
-      
-      // Try to match with compras
-      for (const compra of compras) {
-        const score = this.calculateMatchScore(extractoItem, compra, 'compra')
-        if (score > bestScore && score >= 0.7) {
-          bestScore = score
-          bestMatch = {
-            id: `match_${extractoItem.id}`,
-            extractoItem,
-            matchedWith: compra,
-            score,
-            status: score >= 0.9 ? 'matched' : 'suggested',
-            tipo: 'compra',
-            reason: this.getMatchReason(extractoItem, compra, score)
-          }
-        }
-      }
-      
-      // If no good match found, mark as pending
-      if (!bestMatch) {
-        bestMatch = {
-          id: `match_${extractoItem.id}`,
-          extractoItem,
-          matchedWith: null,
-          score: 0,
-          status: 'pending',
-          reason: 'No se encontró coincidencia'
-        }
-      }
-      
-      matches.push(bestMatch)
-    }
-    
-    return matches
+    // Usar el motor argentino para mejor matching
+    const argentinaEngine = new ArgentinaMatchingEngine()
+    return argentinaEngine.processArgentinaMatching(ventas, compras, extracto)
   }
 
   private calculateMatchScore(

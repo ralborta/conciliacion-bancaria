@@ -13,3 +13,5 @@ export default function HistoryPage() {
     </div>
   )
 }
+
+

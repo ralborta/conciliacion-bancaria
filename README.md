@@ -36,35 +36,62 @@ npm run dev
 
 ## 🌐 Deployment
 
-### Vercel (Frontend)
+### Vercel (Frontend) + Railway (Backend)
 
-1. **Conectar repositorio a Vercel**
-2. **Configurar variables de entorno**:
-   ```env
-   DATABASE_URL=postgresql://...
-   UPLOADTHING_SECRET=...
-   UPLOADTHING_APP_ID=...
-   ```
+#### Configuración Rápida
 
-3. **Deploy automático**:
+1. **Vercel**:
    ```bash
-   vercel deploy
+   # Instalar Vercel CLI
+   npm i -g vercel
+   
+   # Login y deploy
+   vercel login
+   vercel --prod
    ```
 
-### Railway (Base de Datos)
-
-1. **Crear proyecto en Railway**
-2. **Agregar PostgreSQL**
-3. **Configurar variables de entorno**:
-   ```env
-   DATABASE_URL=postgresql://...
+2. **Railway**:
+   ```bash
+   # Instalar Railway CLI
+   npm i -g @railway/cli
+   
+   # Login y deploy
+   railway login
+   railway up
    ```
 
-### Supabase (Alternativa)
+#### Variables de Entorno
 
-1. **Crear proyecto en Supabase**
-2. **Configurar base de datos**
-3. **Obtener connection string**
+**Vercel**:
+- `NEXT_PUBLIC_APP_URL`: https://tu-app.vercel.app
+- `NEXT_PUBLIC_RAILWAY_URL`: https://tu-api.railway.app
+
+**Railway**:
+- `DATABASE_URL`: postgresql://... (auto-generado)
+- `NODE_ENV`: production
+- `PORT`: 3000
+
+#### Scripts de Despliegue
+
+```bash
+# Desplegar a Vercel
+./scripts/deploy-vercel.sh
+
+# Desplegar a Railway
+./scripts/deploy-railway.sh
+```
+
+#### CI/CD con GitHub Actions
+
+El proyecto incluye GitHub Actions para despliegue automático:
+- Push a `main` → Deploy automático a Vercel y Railway
+- Pull Requests → Tests y validación
+
+### URLs de Producción
+
+- **Frontend**: https://tu-app.vercel.app
+- **API**: https://tu-api.railway.app
+- **Health Check**: https://tu-api.railway.app/api/health
 
 ## 🔧 Configuración
 
