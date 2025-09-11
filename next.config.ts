@@ -1,16 +1,19 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  output: 'standalone',
   experimental: {
-    serverComponentsExternalPackages: ['exceljs']
+    serverComponentsExternalPackages: ['exceljs'],
+    outputFileTracingRoot: undefined,
   },
+  swcMinify: true,
   images: {
     domains: ['localhost'],
   },
   env: {
     CUSTOM_KEY: process.env.CUSTOM_KEY,
   },
-  // Optimizaciones para Vercel
+  // Optimizaciones para Railway
   compress: true,
   poweredByHeader: false,
   generateEtags: false,
