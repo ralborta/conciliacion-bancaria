@@ -31,9 +31,16 @@ npm run lint
 echo "🏗️  Construyendo para producción..."
 npm run build
 
+# Verificar que Railway CLI está instalado
+if ! command -v railway &> /dev/null; then
+    echo "📦 Instalando Railway CLI..."
+    npm install -g @railway/cli
+fi
+
 # Desplegar a Railway
 echo "🚂 Desplegando a Railway..."
 railway up
 
 echo "✅ Despliegue completado!"
 echo "🌐 API disponible en: https://tu-api.railway.app"
+echo "📊 Health check: https://tu-api.railway.app/api/health"

@@ -37,7 +37,7 @@ railway login
 # Inicializar proyecto
 railway init
 
-# Desplegar
+# Desplegar (usando Docker)
 railway up
 ```
 
@@ -50,6 +50,11 @@ railway up
 ### 3. Base de datos
 - Crear servicio PostgreSQL en Railway
 - Configurar `DATABASE_URL` automáticamente
+
+### 4. Configuración de Build
+- **Builder**: Docker (recomendado)
+- **Dockerfile**: Incluido en el proyecto
+- **Health Check**: `/api/health`
 
 ## Estructura de URLs
 
