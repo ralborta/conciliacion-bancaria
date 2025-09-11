@@ -1,39 +1,30 @@
-# Multi-stage Dockerfile para Railway
-FROM node:20-alpine AS deps
+# Dockerfile simplificado para Railway
+FROM node:20-alpine
+
+# Instalar dependencias del sistema
+RUN apk add --no-cache libc6-compat
+
+# Establecer directorio de trabajo
 WORKDIR /app
+
+# Copiar archivos de dependencias
 COPY package*.json ./
+
+# Instalar dependencias
 RUN npm ci
 
-FROM node:20-alpine AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+# Copiar código fuente
 COPY . .
 
-# Variables de entorno para el build
-ENV NEXT_TELEMETRY_DISABLED=1
-ENV NODE_ENV=production
-
-# Build con todas las dependencias disponibles
+# Construir la aplicación
 RUN npm run build
 
-FROM node:20-alpine AS runner
-WORKDIR /app
-
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
-
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
-
-# Copiar archivos necesarios
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-
-USER nextjs
-
+# Exponer puerto
 EXPOSE 3000
 
+# Variables de entorno
+ENV NODE_ENV=production
 ENV PORT=3000
 
-CMD ["node", "server.js"]
+# Comando de inicio
+CMD ["npm", "start"]
