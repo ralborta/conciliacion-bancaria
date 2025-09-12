@@ -35,7 +35,7 @@ export class ConciliationEngine {
       const extractoNorm = this.normalizeExtracto(extractoData, options.banco)
       
       // 3. Run matching engine
-      const matches = this.runMatching(
+      const matches = await this.runMatching(
         ventasNorm,
         comprasNorm,
         extractoNorm
@@ -219,14 +219,14 @@ export class ConciliationEngine {
     return configs[banco] || configs['Santander']
   }
 
-  private runMatching(
+  private async runMatching(
     ventas: VentaCanon[],
     compras: CompraCanon[],
     extracto: ExtractoCanon[]
-  ): MatchResult[] {
+  ): Promise<MatchResult[]> {
     // Usar el motor argentino para mejor matching
     const argentinaEngine = new ArgentinaMatchingEngine()
-    return argentinaEngine.processArgentinaMatching(ventas, compras, extracto)
+    return await argentinaEngine.processArgentinaMatching(ventas, compras, extracto)
   }
 
   private calculateMatchScore(

@@ -1,15 +1,43 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  eslint: {
-    // Warning: Esto permite builds con errores de ESLint
-    ignoreDuringBuilds: true,
+  experimental: {
+    serverComponentsExternalPackages: ['exceljs'],
   },
-  typescript: {
-    // Warning: Permite builds con errores de TypeScript
-    ignoreBuildErrors: true,
+  swcMinify: true,
+  images: {
+    domains: ['localhost'],
   },
-}
+  env: {
+    CUSTOM_KEY: process.env.CUSTOM_KEY,
+  },
+  // Optimizaciones para Railway
+  compress: true,
+  poweredByHeader: false,
+  generateEtags: false,
+  // Configuración para archivos estáticos
+  trailingSlash: false,
+  // Configuración de headers para seguridad
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'origin-when-cross-origin',
+          },
+        ],
+      },
+    ]
+  },
+};
 
-module.exports = nextConfig
-
-
+module.exports = nextConfig;
