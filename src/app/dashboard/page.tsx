@@ -157,6 +157,13 @@ export default function DashboardPage() {
         throw new Error(result.error || 'Error en el procesamiento');
       }
       
+      // ✅ GUARDAR DATOS EN LOCALSTORAGE ANTES DE NAVEGAR
+      if (result.data) {
+        console.log("💾 Guardando datos en localStorage:", result.data);
+        localStorage.setItem('conciliationData', JSON.stringify(result.data));
+        localStorage.setItem('currentSessionId', result.sessionId);
+      }
+      
       // PASO 4: Completar
       setCurrentStep(3)
       setProgress(100)
