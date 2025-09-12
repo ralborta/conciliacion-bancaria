@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
       totalResultados: resultado.length || 0,
       tiposResultados: resultado?.map?.(r => r.status) || 'No array'
     });
-
+    
     // Calculate stats
     const stats: ConciliationStats = {
       totalMovimientos: resultado.length,
@@ -129,8 +129,8 @@ export async function POST(request: NextRequest) {
         totalProcessed: resultado.length || 0
       }
     });
-
-    return NextResponse.json({ 
+    
+    return NextResponse.json({
       success: true, 
       sessionId,
       results: resultado,
@@ -198,6 +198,17 @@ async function procesarConciliacionConDebug(ventasFile: File, comprasFile: File,
       extracto: extractoData?.length || 0
     });
     
+    // 🔍 DEBUG: Verificar datos parseados
+    if (ventasData && ventasData.length > 0) {
+      console.log("📊 VENTAS parseadas - Primeras 2 filas:", ventasData.slice(0, 2));
+    }
+    if (comprasData && comprasData.length > 0) {
+      console.log("📊 COMPRAS parseadas - Primeras 2 filas:", comprasData.slice(0, 2));
+    }
+    if (extractoData && extractoData.length > 0) {
+      console.log("📊 EXTRACTO parseado - Primeras 2 filas:", extractoData.slice(0, 2));
+    }
+    
     // PASO 2: Normalización (SIMPLIFICADO)
     console.log("PASO 2 - Normalizando...");
     
@@ -210,14 +221,28 @@ async function procesarConciliacionConDebug(ventasFile: File, comprasFile: File,
       comprasNormalizadas = normalizarComprasConDebug(comprasData);
       extractoNormalizado = normalizarExtractoConDebug(extractoData);
       
-      console.log("✅ Normalización completada:", {
-        ventas: ventasNormalizadas.length,
-        compras: comprasNormalizadas.length,
-        extracto: extractoNormalizado.length
-      });
-    } catch (error) {
-      console.error("❌ Error en normalización:", error);
+    console.log("✅ Normalización completada:", {
+      ventas: ventasNormalizadas.length,
+      compras: comprasNormalizadas.length,
+      extracto: extractoNormalizado.length
+    });
+    
+    // 🔍 DEBUG: Verificar si los datos están vacíos
+    if (ventasNormalizadas.length === 0) {
+      console.log("⚠️ VENTAS VACÍAS - Verificando datos originales:");
+      console.log("- Primeras 3 filas de ventasData:", ventasData.slice(0, 3));
     }
+    if (comprasNormalizadas.length === 0) {
+      console.log("⚠️ COMPRAS VACÍAS - Verificando datos originales:");
+      console.log("- Primeras 3 filas de comprasData:", comprasData.slice(0, 3));
+    }
+    if (extractoNormalizado.length === 0) {
+      console.log("⚠️ EXTRACTO VACÍO - Verificando datos originales:");
+      console.log("- Primeras 3 filas de extractoData:", extractoData.slice(0, 3));
+    }
+  } catch (error) {
+    console.error("❌ Error en normalización:", error);
+  }
     
     // PASO 3: Matching con logging
     console.log("PASO 3 - Iniciando matching...");
