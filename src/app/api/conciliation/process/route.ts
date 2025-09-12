@@ -101,6 +101,17 @@ export async function POST(request: NextRequest) {
       status: 'completed'
     })
 
+    console.log("📤 Enviando respuesta final:", {
+      success: true,
+      sessionId,
+      totalResults: resultado.length,
+      stats,
+      debug: {
+        timestamp: new Date().toISOString(),
+        totalProcessed: resultado.length || 0
+      }
+    });
+
     return NextResponse.json({ 
       success: true, 
       sessionId,
