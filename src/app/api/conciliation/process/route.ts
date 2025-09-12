@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
         porcentajeConciliado: totalMovimientos > 0 ? (conciliados / totalMovimientos) * 100 : 0,
         montoTotal: stats.montoTotal || 0,
         
-        // INCLUIR LOS MOVIMIENTOS REALES (usar datos mock por ahora)
+        // INCLUIR LOS MOVIMIENTOS REALES (usar datos mock por ahora hasta arreglar variables)
         movements: Array.from({ length: Math.min(totalMovimientos, 50) }, (_, index) => ({
           id: `mov_${index}`,
           fecha: new Date().toISOString().split('T')[0],
