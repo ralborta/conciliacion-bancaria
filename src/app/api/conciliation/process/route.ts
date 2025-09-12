@@ -7,9 +7,14 @@ import { ProcessOptions, ConciliationStats } from '@/lib/types/conciliacion'
 
 export async function POST(request: NextRequest) {
   console.log("🚀 API LLAMADA - Inicio");
+  console.log("🔍 Request headers:", Object.fromEntries(request.headers.entries()));
+  console.log("🔍 Request method:", request.method);
+  console.log("🔍 Request URL:", request.url);
   
   try {
+    console.log("📥 Parseando formData...");
     const formData = await request.formData()
+    console.log("✅ FormData parseado exitosamente");
     
     const ventasFile = formData.get('ventas') as File
     const comprasFile = formData.get('compras') as File
