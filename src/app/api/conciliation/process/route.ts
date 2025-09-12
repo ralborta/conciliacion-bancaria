@@ -336,10 +336,10 @@ async function procesarConciliacionConDebug(ventasFile: File, comprasFile: File,
     }));
 
     // SEPARAR IMPUESTOS DE COMPRAS
-    const impuestosNormalizados = comprasData
+    const impuestosCompras = comprasData
       .filter(c => c.iva && c.iva > 0) // Solo compras con IVA
       .map((c, index) => ({
-        id: `impuesto_${index}`,
+        id: `impuesto_compra_${index}`,
         fechaEmision: c.fecha,
         proveedor: c.proveedor,
         total: c.iva, // El IVA es el total del impuesto
@@ -353,21 +353,75 @@ async function procesarConciliacionConDebug(ventasFile: File, comprasFile: File,
         moneda: 'ARS',
         formaPago: 'Efectivo'
       }));
-    
-    const extractoNormalizado = extractoData.map((e, index) => ({
-      id: `banco_${index}`,
-      banco: banco,
-      cuenta: 'Cuenta Principal',
-      fechaOperacion: e.fecha,
-      concepto: e.concepto,
-      importe: e.importe,
-      fechaValor: e.fechaValor || undefined,
-      saldo: e.saldo
-    }));
+
+    // SEPARAR IMPUESTOS DEL EXTRACTO BANCARIO
+    const impuestosExtracto = extractoData
+      .filter(e => {
+        const concepto = e.concepto?.toLowerCase() || '';
+        const esImpuesto = concepto.includes('impuesto') || 
+                          concepto.includes('debito') || 
+                          concepto.includes('ley 25413') ||
+                          concepto.includes('retencion');
+        return esImpuesto; // Solo incluir si ES impuesto
+      })
+      .map((e, index) => ({
+        id: `impuesto_extracto_${index}`,
+        banco: banco,
+        cuenta: 'Cuenta Principal',
+        fechaOperacion: e.fecha,
+        concepto: e.concepto,
+        importe: e.importe,
+        fechaValor: e.fechaValor || undefined,
+        saldo: e.saldo
+      }));
+
+    // COMBINAR IMPUESTOS DE COMPRAS Y EXTRACTO
+    const impuestosNormalizados = [
+      ...impuestosCompras,
+      ...impuestosExtracto.map(imp => ({
+        id: imp.id,
+        fechaEmision: imp.fechaOperacion,
+        proveedor: 'Banco',
+        total: Math.abs(imp.importe), // Valor absoluto del importe
+        cuitProveedor: '',
+        tipo: 'Impuesto Bancario',
+        puntoVenta: '',
+        numero: '',
+        neto: 0,
+        iva: 0,
+        medioPago: 'Efectivo',
+        moneda: 'ARS',
+        formaPago: 'Efectivo'
+      }))
+    ];
+
+    const extractoNormalizado = extractoData
+      .filter(e => {
+        // FILTRAR IMPUESTOS DEL EXTRACTO BANCARIO
+        const concepto = e.concepto?.toLowerCase() || '';
+        const esImpuesto = concepto.includes('impuesto') || 
+                          concepto.includes('debito') || 
+                          concepto.includes('ley 25413') ||
+                          concepto.includes('retencion');
+        return !esImpuesto; // Solo incluir si NO es impuesto
+      })
+      .map((e, index) => ({
+        id: `banco_${index}`,
+        banco: banco,
+        cuenta: 'Cuenta Principal',
+        fechaOperacion: e.fecha,
+        concepto: e.concepto,
+        importe: e.importe,
+        fechaValor: e.fechaValor || undefined,
+        saldo: e.saldo
+      }));
     
     console.log("✅ Datos listos para matching:", {
       ventas: ventasNormalizadas.length,
       compras: comprasNormalizadas.length,
+      impuestos: impuestosNormalizados.length,
+      impuestosCompras: impuestosCompras.length,
+      impuestosExtracto: impuestosExtracto.length,
       extracto: extractoNormalizado.length
     });
     
