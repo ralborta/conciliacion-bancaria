@@ -92,11 +92,20 @@ export async function POST(request: NextRequest) {
     console.log("💾 Archivos guardados en storage");
     
     // PROCESAR con logging
-    const resultado = await procesarConciliacionConDebug(ventasFile, comprasFile, extractoFile, banco, periodo);
+    const procesamiento = await procesarConciliacionConDebug(ventasFile, comprasFile, extractoFile, banco, periodo);
+    
+    // Extraer datos del resultado (manejar tanto array como objeto)
+    const resultado = Array.isArray(procesamiento) ? procesamiento : procesamiento.resultados;
+    const ventasNormalizadas = Array.isArray(procesamiento) ? [] : procesamiento.ventasNormalizadas;
+    const comprasNormalizadas = Array.isArray(procesamiento) ? [] : procesamiento.comprasNormalizadas;
+    const extractoNormalizado = Array.isArray(procesamiento) ? [] : procesamiento.extractoNormalizado;
     
     console.log("✅ Procesamiento completo:", {
       totalResultados: resultado.length || 0,
-      tiposResultados: resultado?.map?.(r => r.status) || 'No array'
+      tiposResultados: resultado?.map?.(r => r.status) || 'No array',
+      ventas: ventasNormalizadas.length,
+      compras: comprasNormalizadas.length,
+      extracto: extractoNormalizado.length
     });
     
     // Calculate stats
@@ -122,8 +131,8 @@ export async function POST(request: NextRequest) {
 
     // IMPORTANTE: Estructura de respuesta esperada por el frontend
     const totalMovimientos = stats.totalMovimientos || 0;
-    const totalCompras = 0; // Por ahora hardcodeado
-    const totalVentas = 0; // Por ahora hardcodeado
+    const totalCompras = comprasNormalizadas.length;
+    const totalVentas = ventasNormalizadas.length;
     const conciliados = stats.conciliados || 0;
     const pendientes = stats.pendientes || 0;
     
@@ -146,37 +155,37 @@ export async function POST(request: NextRequest) {
         porcentajeConciliado: totalMovimientos > 0 ? (conciliados / totalMovimientos) * 100 : 0,
         montoTotal: stats.montoTotal || 0,
         
-        // INCLUIR LOS MOVIMIENTOS REALES (usar datos mock por ahora hasta arreglar variables)
-        movements: Array.from({ length: Math.min(totalMovimientos, 50) }, (_, index) => ({
+        // INCLUIR LOS MOVIMIENTOS REALES
+        movements: extractoNormalizado.slice(0, 50).map((mov, index) => ({
           id: `mov_${index}`,
-          fecha: new Date().toISOString().split('T')[0],
-          concepto: `Movimiento ${index + 1}`,
-          monto: Math.random() * 10000 - 5000,
-          tipo: Math.random() > 0.5 ? 'Crédito' : 'Débito',
+          fecha: mov.fechaOperacion?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0],
+          concepto: mov.concepto || `Movimiento ${index + 1}`,
+          monto: mov.importe || 0,
+          tipo: (mov.importe || 0) > 0 ? 'Crédito' : 'Débito',
           estado: 'pending',
           referencia: `REF-${index}`,
-          banco: banco,
-          cuenta: 'Cuenta Principal'
+          banco: mov.banco || banco,
+          cuenta: mov.cuenta || 'Cuenta Principal'
         })),
         
-        // INCLUIR LAS COMPRAS REALES (usar datos mock por ahora)
-        compras: Array.from({ length: Math.min(totalCompras, 20) }, (_, i) => ({
+        // INCLUIR LAS COMPRAS REALES
+        compras: comprasNormalizadas.slice(0, 20).map((c, i) => ({
           id: `compra_${i}`,
-          fecha: new Date().toISOString().split('T')[0],
-          proveedor: `Proveedor ${i + 1}`,
-          total: Math.random() * 50000,
-          tipo: 'Compra',
-          cuit: `20${Math.random().toString().substr(2, 8)}`
+          fecha: c.fechaEmision?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0],
+          proveedor: c.proveedor || `Proveedor ${i + 1}`,
+          total: c.total || 0,
+          tipo: c.tipo || 'Compra',
+          cuit: c.cuitProveedor || ''
         })),
         
-        // INCLUIR LAS VENTAS REALES (usar datos mock por ahora)
-        ventas: Array.from({ length: Math.min(totalVentas, 20) }, (_, i) => ({
+        // INCLUIR LAS VENTAS REALES
+        ventas: ventasNormalizadas.slice(0, 20).map((v, i) => ({
           id: `venta_${i}`,
-          fecha: new Date().toISOString().split('T')[0],
-          cliente: `Cliente ${i + 1}`,
-          total: Math.random() * 30000,
-          tipo: 'Venta',
-          cuit: `20${Math.random().toString().substr(2, 8)}`
+          fecha: v.fechaEmision?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0],
+          cliente: v.cliente || `Cliente ${i + 1}`,
+          total: v.total || 0,
+          tipo: v.tipo || 'Venta',
+          cuit: v.cuitCliente || ''
         }))
       },
       stats: {
@@ -397,7 +406,12 @@ async function procesarConciliacionConDebug(ventasFile: File, comprasFile: File,
         muestraResultados: resultados.slice(0, 3)
       });
       
-      return resultados;
+      return {
+        resultados,
+        ventasNormalizadas,
+        comprasNormalizadas,
+        extractoNormalizado
+      };
       
     } catch (error) {
       console.error("❌ Error en motor avanzado:", error);
@@ -453,7 +467,12 @@ async function procesarConciliacionConDebug(ventasFile: File, comprasFile: File,
       }
       
       console.log(`📊 RESULTADO FALLBACK: ${matchesEncontrados} matches de ${Math.min(ventasNormalizadas.length, 10)} procesadas`);
-      return resultados;
+      return {
+        resultados,
+        ventasNormalizadas,
+        comprasNormalizadas,
+        extractoNormalizado
+      };
     }
     
   } catch (error) {
