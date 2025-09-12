@@ -219,7 +219,7 @@ export class ConciliationEngine {
     return configs[banco] || configs['Santander']
   }
 
-  private async runMatching(
+  async runMatching(
     ventas: VentaCanon[],
     compras: CompraCanon[],
     extracto: ExtractoCanon[]

@@ -210,77 +210,82 @@ async function procesarConciliacionConDebug(ventasFile: File, comprasFile: File,
       }];
     }
     
-    // MATCHING BÁSICO CON LOGGING
-    const resultados = [];
-    let matchesEncontrados = 0;
+    // MOTOR AVANZADO DE CONCILIACIÓN ARGENTINA
+    console.log("🚀 Iniciando motor avanzado de conciliación...");
     
-    console.log("🔄 Procesando ventas...");
-    for (let i = 0; i < Math.min(ventasNormalizadas.length, 10); i++) {
-      const venta = ventasNormalizadas[i];
-      console.log(`  Venta ${i + 1}: $${venta.total} - ${venta.cliente || 'Sin cliente'}`);
-      
-      // Buscar ingreso bancario similar
-      const match = extractoNormalizado.find(mov => 
-        mov.tipo === 'ingreso' && 
-        Math.abs(mov.importe - venta.total) <= (venta.total * 0.05) // 5% tolerancia
+    try {
+      // Usar el motor avanzado que ya implementamos
+      const resultados = await engine.runMatching(
+        ventasNormalizadas,
+        comprasNormalizadas, 
+        extractoNormalizado
       );
       
-      if (match) {
-        console.log(`    ✅ MATCH encontrado: $${match.importe}`);
-        matchesEncontrados++;
-        resultados.push({
-          id: `venta_match_${i}`,
-          extractoItem: match,
-          matchedWith: venta,
-          score: 0.9,
-          status: 'matched' as const,
-          tipo: 'venta' as const,
-          reason: 'Match por importe'
-        });
-      } else {
-        console.log(`    ❌ Sin match`);
-        resultados.push({
-          id: `venta_no_match_${i}`,
-          extractoItem: {
-            id: 'dummy',
-            banco: 'N/A',
-            cuenta: 'N/A',
-            fechaOperacion: new Date(),
-            concepto: 'Sin match',
-            importe: 0
-          },
-          matchedWith: venta,
-          score: 0,
-          status: 'pending' as const,
-          tipo: 'venta' as const,
-          reason: 'Sin conciliar'
-        });
+      console.log("✅ Motor avanzado completado:", {
+        totalResultados: resultados.length,
+        matchesExactos: resultados.filter(r => r.score >= 0.9).length,
+        matchesParciales: resultados.filter(r => r.score < 0.9 && r.score > 0).length,
+        sinMatch: resultados.filter(r => r.score === 0).length
+      });
+      
+      return resultados;
+      
+    } catch (error) {
+      console.error("❌ Error en motor avanzado:", error);
+      const errorObj = error as Error;
+      
+      // Fallback a matching básico si falla el motor avanzado
+      console.log("🔄 Fallback a matching básico...");
+      const resultados = [];
+      let matchesEncontrados = 0;
+      
+      console.log("🔄 Procesando ventas...");
+      for (let i = 0; i < Math.min(ventasNormalizadas.length, 10); i++) {
+        const venta = ventasNormalizadas[i];
+        console.log(`  Venta ${i + 1}: $${venta.total} - ${venta.cliente || 'Sin cliente'}`);
+        
+        // Buscar ingreso bancario similar
+        const match = extractoNormalizado.find(mov => 
+          mov.tipo === 'ingreso' && 
+          Math.abs(mov.importe - venta.total) <= (venta.total * 0.05) // 5% tolerancia
+        );
+        
+        if (match) {
+          console.log(`    ✅ MATCH encontrado: $${match.importe}`);
+          matchesEncontrados++;
+          resultados.push({
+            id: `venta_match_${i}`,
+            extractoItem: match,
+            matchedWith: venta,
+            score: 0.9,
+            status: 'matched' as const,
+            tipo: 'venta' as const,
+            reason: 'Match por importe (fallback)'
+          });
+        } else {
+          console.log(`    ❌ Sin match`);
+          resultados.push({
+            id: `venta_no_match_${i}`,
+            extractoItem: {
+              id: 'dummy',
+              banco: 'N/A',
+              cuenta: 'N/A',
+              fechaOperacion: new Date(),
+              concepto: 'Sin match',
+              importe: 0
+            },
+            matchedWith: venta,
+            score: 0,
+            status: 'pending' as const,
+            tipo: 'venta' as const,
+            reason: 'Sin conciliar (fallback)'
+          });
+        }
       }
+      
+      console.log(`📊 RESULTADO FALLBACK: ${matchesEncontrados} matches de ${Math.min(ventasNormalizadas.length, 10)} procesadas`);
+      return resultados;
     }
-    
-    console.log(`📊 RESULTADO FINAL: ${matchesEncontrados} matches de ${Math.min(ventasNormalizadas.length, 10)} procesadas`);
-    
-    // ASEGURAR que siempre retornamos algo
-    if (resultados.length === 0) {
-      console.error("⚠️ NO SE GENERARON RESULTADOS - Creando resultado de debug");
-      return [{
-        id: 'debug_no_results',
-        extractoItem: {
-          id: 'dummy',
-          banco: 'N/A',
-          cuenta: 'N/A',
-          fechaOperacion: new Date(),
-          concepto: 'Debug',
-          importe: 0
-        },
-        matchedWith: null,
-        score: 0,
-        status: 'pending' as const,
-        reason: 'No se generaron resultados en el procesamiento'
-      }];
-    }
-    
-    return resultados;
     
   } catch (error) {
     console.error("❌ Error en procesamiento:", error);
