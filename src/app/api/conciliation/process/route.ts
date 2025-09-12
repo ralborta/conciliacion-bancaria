@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ConciliationEngine } from '@/lib/engine/matcher'
 import { memoryStorage } from '@/lib/storage/memory'
 import { ProcessOptions, ConciliationStats } from '@/lib/types/conciliacion'
+import { ArgentinaExcelParser } from '@/lib/parsers/excelParser'
 
 // ===== DEBUG: POR QUÉ NO SALEN RESULTADOS =====
 
@@ -186,63 +187,77 @@ async function procesarConciliacionConDebug(ventasFile: File, comprasFile: File,
     const engine = new ConciliationEngine();
     const options: ProcessOptions = { banco, periodo };
     
-    // Parsear archivos individualmente para debug (SIMPLIFICADO)
-    console.log("🔄 Parseando archivos...");
-    const ventasData = await parseFileToArray(ventasFile);
-    const comprasData = await parseFileToArray(comprasFile);
-    const extractoData = await parseFileToArray(extractoFile);
+    // Parsear archivos con el nuevo parser AFIP
+    console.log("🔄 Parseando archivos con parser AFIP...");
     
-    console.log("✅ Archivos parseados:", {
+    const parser = new ArgentinaExcelParser();
+    
+    // Parsear con el nuevo parser
+    const ventasBuffer = await ventasFile.arrayBuffer();
+    const comprasBuffer = await comprasFile.arrayBuffer();
+    const extractoBuffer = await extractoFile.arrayBuffer();
+    
+    const ventasData = parser.parseAFIPFile(ventasBuffer, 'ventas');
+    const comprasData = parser.parseAFIPFile(comprasBuffer, 'compras');
+    const extractoData = parser.parseBankStatement(extractoBuffer);
+    
+    console.log("✅ Archivos parseados con parser AFIP:", {
       ventas: ventasData?.length || 0,
       compras: comprasData?.length || 0,
       extracto: extractoData?.length || 0
     });
     
-    // 🔍 DEBUG: Verificar datos parseados
-    if (ventasData && ventasData.length > 0) {
-      console.log("📊 VENTAS parseadas - Primeras 2 filas:", ventasData.slice(0, 2));
-    }
-    if (comprasData && comprasData.length > 0) {
-      console.log("📊 COMPRAS parseadas - Primeras 2 filas:", comprasData.slice(0, 2));
-    }
-    if (extractoData && extractoData.length > 0) {
-      console.log("📊 EXTRACTO parseado - Primeras 2 filas:", extractoData.slice(0, 2));
-    }
+    // PASO 2: Los datos ya están normalizados por el parser AFIP
+    console.log("PASO 2 - Datos ya normalizados por parser AFIP");
     
-    // PASO 2: Normalización (SIMPLIFICADO)
-    console.log("PASO 2 - Normalizando...");
+    // Convertir datos del parser a formato esperado por el motor
+    const ventasNormalizadas = ventasData.map((v, index) => ({
+      id: `venta_${index}`,
+      fechaEmision: v.fecha,
+      cliente: v.cliente,
+      total: v.total,
+      cuitCliente: v.cuitCliente,
+      tipo: v.tipo,
+      puntoVenta: v.puntoVenta,
+      numero: v.numero,
+      neto: v.neto,
+      iva: v.iva,
+      medioCobro: 'Efectivo', // Valor por defecto
+      moneda: 'ARS' // Valor por defecto
+    }));
     
-    let ventasNormalizadas: any[] = [];
-    let comprasNormalizadas: any[] = [];
-    let extractoNormalizado: any[] = [];
+    const comprasNormalizadas = comprasData.map((c, index) => ({
+      id: `compra_${index}`,
+      fechaEmision: c.fecha,
+      proveedor: c.proveedor,
+      total: c.total,
+      cuitProveedor: c.cuitProveedor,
+      tipo: c.tipo,
+      puntoVenta: c.puntoVenta,
+      numero: c.numero,
+      neto: c.neto,
+      iva: c.iva,
+      medioPago: 'Efectivo', // Valor por defecto
+      moneda: 'ARS', // Valor por defecto
+      formaPago: 'Efectivo' // Valor por defecto
+    }));
     
-    try {
-      ventasNormalizadas = normalizarVentasConDebug(ventasData);
-      comprasNormalizadas = normalizarComprasConDebug(comprasData);
-      extractoNormalizado = normalizarExtractoConDebug(extractoData);
-      
-    console.log("✅ Normalización completada:", {
+    const extractoNormalizado = extractoData.map((e, index) => ({
+      id: `banco_${index}`,
+      banco: banco,
+      cuenta: 'Cuenta Principal',
+      fechaOperacion: e.fecha,
+      concepto: e.concepto,
+      importe: e.importe,
+      fechaValor: e.fechaValor || undefined,
+      saldo: e.saldo
+    }));
+    
+    console.log("✅ Datos listos para matching:", {
       ventas: ventasNormalizadas.length,
       compras: comprasNormalizadas.length,
       extracto: extractoNormalizado.length
     });
-    
-    // 🔍 DEBUG: Verificar si los datos están vacíos
-    if (ventasNormalizadas.length === 0) {
-      console.log("⚠️ VENTAS VACÍAS - Verificando datos originales:");
-      console.log("- Primeras 3 filas de ventasData:", ventasData.slice(0, 3));
-    }
-    if (comprasNormalizadas.length === 0) {
-      console.log("⚠️ COMPRAS VACÍAS - Verificando datos originales:");
-      console.log("- Primeras 3 filas de comprasData:", comprasData.slice(0, 3));
-    }
-    if (extractoNormalizado.length === 0) {
-      console.log("⚠️ EXTRACTO VACÍO - Verificando datos originales:");
-      console.log("- Primeras 3 filas de extractoData:", extractoData.slice(0, 3));
-    }
-  } catch (error) {
-    console.error("❌ Error en normalización:", error);
-  }
     
     // PASO 3: Matching con logging
     console.log("PASO 3 - Iniciando matching...");
@@ -331,7 +346,7 @@ async function procesarConciliacionConDebug(ventasFile: File, comprasFile: File,
         
         // Buscar ingreso bancario similar
         const match = extractoNormalizado.find(mov => 
-          mov.tipo === 'ingreso' && 
+          mov.importe > 0 && 
           Math.abs(mov.importe - venta.total) <= (venta.total * 0.05) // 5% tolerancia
         );
         
@@ -419,13 +434,36 @@ function normalizarVentasConDebug(data: any[]) {
     
     // Los datos empiezan después de los headers
     const dataRows = data.slice(headerRowIndex + 1);
-    const dataFiltered = dataRows.filter(row => row && row[27] && !isNaN(parseFloat(String(row[27]))));
+    
+    // 🔍 DEBUG: Verificar qué columnas tienen datos
+    if (dataRows.length > 0) {
+      console.log("🔍 VENTAS - Primera fila de datos:", dataRows[0]);
+      console.log("🔍 VENTAS - Longitud de fila:", dataRows[0].length);
+      console.log("🔍 VENTAS - Columna 8 (cliente):", dataRows[0][8]);
+      console.log("🔍 VENTAS - Columna 27 (total):", dataRows[0][27]);
+    }
+    
+    // Buscar la columna que tiene el total (puede ser diferente a la 27)
+    let totalColumnIndex = 27; // Por defecto
+    if (dataRows.length > 0) {
+      // Buscar la columna con el número más alto (probablemente el total)
+      for (let i = 0; i < dataRows[0].length; i++) {
+        const value = dataRows[0][i];
+        if (value && !isNaN(parseFloat(String(value))) && parseFloat(String(value)) > 1000) {
+          totalColumnIndex = i;
+          console.log(`🔍 VENTAS - Columna de total encontrada en índice ${i}:`, value);
+          break;
+        }
+      }
+    }
+    
+    const dataFiltered = dataRows.filter(row => row && row[totalColumnIndex] && !isNaN(parseFloat(String(row[totalColumnIndex]))));
     
     return dataFiltered.map((row, index) => ({
       id: `venta_${index}`,
       fechaEmision: new Date(),
       cliente: String(row[8] || 'Sin cliente'),
-      total: parseFloat(String(row[27])),
+      total: parseFloat(String(row[totalColumnIndex])),
       raw: row.slice(0, 5)
     }));
   } else {
@@ -551,6 +589,9 @@ async function parseFileToArray(file: File): Promise<any[]> {
     const worksheet = workbook.worksheets[0];
     const rows: any[][] = [];
     
+    // 🔍 DEBUG: Verificar todas las filas del Excel
+    console.log(`📊 Excel - Total de filas en worksheet: ${worksheet.rowCount}`);
+    
     worksheet.eachRow((row, rowNumber) => {
       const rowData: any[] = [];
       let hasData = false;
@@ -562,6 +603,11 @@ async function parseFileToArray(file: File): Promise<any[]> {
           hasData = true;
         }
       });
+      
+      // 🔍 DEBUG: Mostrar las primeras 5 filas
+      if (rowNumber <= 5) {
+        console.log(`📊 Excel - Fila ${rowNumber}:`, rowData);
+      }
       
       // Solo agregar filas que tengan datos
       if (hasData) {
