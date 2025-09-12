@@ -370,29 +370,18 @@ async function procesarConciliacionConDebug(ventasFile: File, comprasFile: File,
 
 // 3. FUNCIONES DE NORMALIZACIÓN CON DEBUG
 function normalizarVentasConDebug(data: any[]) {
-  console.log("🔍 Normalizando ventas - debug:");
-  
   if (!Array.isArray(data)) {
-    console.error("❌ Ventas no es array:", typeof data);
     return [];
   }
   
-  console.log(`- Array recibido con ${data.length} elementos`);
-  console.log(`- Primer elemento:`, data[0]);
-  console.log(`- Segundo elemento:`, data[1]);
-  console.log(`- Es array de arrays?:`, Array.isArray(data[0]));
-  
   if (Array.isArray(data[0])) {
     // Formato Excel - VENTAS tienen primera línea en blanco
-    console.log("📋 Formato Excel detectado - VENTAS (primera línea en blanco)");
-    
     // Buscar la fila con headers (debería ser la segunda fila)
     let headerRowIndex = 1; // Empezar desde la segunda fila
     let headers = data[headerRowIndex];
     
     // Verificar si la segunda fila tiene headers
     if (!headers || !Array.isArray(headers) || headers.length === 0) {
-      console.log("⚠️ Segunda fila vacía, buscando headers...");
       // Buscar la primera fila con datos
       for (let i = 1; i < Math.min(data.length, 5); i++) {
         if (data[i] && Array.isArray(data[i]) && data[i].length > 0) {
@@ -403,14 +392,11 @@ function normalizarVentasConDebug(data: any[]) {
       }
     }
     
-    console.log(`- Headers encontrados en fila ${headerRowIndex + 1}:`, headers);
-    
     // Los datos empiezan después de los headers
     const dataRows = data.slice(headerRowIndex + 1);
     const dataFiltered = dataRows.filter(row => row && row[27] && !isNaN(parseFloat(String(row[27]))));
-    console.log(`- Después de filtrar: ${dataFiltered.length} filas válidas`);
     
-    return dataFiltered.slice(0, 20).map((row, index) => ({ // Limitar a 20 para debug
+    return dataFiltered.map((row, index) => ({
       id: `venta_${index}`,
       fechaEmision: new Date(),
       cliente: String(row[8] || 'Sin cliente'),
@@ -419,8 +405,7 @@ function normalizarVentasConDebug(data: any[]) {
     }));
   } else {
     // Formato JSON
-    console.log("📋 Formato JSON detectado");
-    return data.slice(0, 20).map((item, index) => ({
+    return data.map((item, index) => ({
       id: `venta_${index}`,
       fechaEmision: new Date(),
       cliente: String(item.cliente || 'Sin cliente'),
@@ -431,29 +416,18 @@ function normalizarVentasConDebug(data: any[]) {
 }
 
 function normalizarComprasConDebug(data: any[]) {
-  console.log("🔍 Normalizando compras - debug:");
-  
   if (!Array.isArray(data)) {
-    console.error("❌ Compras no es array:", typeof data);
     return [];
   }
   
-  console.log(`- Array recibido con ${data.length} elementos`);
-  console.log(`- Primer elemento:`, data[0]);
-  console.log(`- Segundo elemento:`, data[1]);
-  console.log(`- Es array de arrays?:`, Array.isArray(data[0]));
-  
   if (Array.isArray(data[0])) {
     // Formato Excel - COMPRAS tienen primera línea en blanco
-    console.log("📋 Formato Excel detectado - COMPRAS (primera línea en blanco)");
-    
     // Buscar la fila con headers (debería ser la segunda fila)
     let headerRowIndex = 1; // Empezar desde la segunda fila
     let headers = data[headerRowIndex];
     
     // Verificar si la segunda fila tiene headers
     if (!headers || !Array.isArray(headers) || headers.length === 0) {
-      console.log("⚠️ Segunda fila vacía, buscando headers...");
       // Buscar la primera fila con datos
       for (let i = 1; i < Math.min(data.length, 5); i++) {
         if (data[i] && Array.isArray(data[i]) && data[i].length > 0) {
@@ -464,14 +438,11 @@ function normalizarComprasConDebug(data: any[]) {
       }
     }
     
-    console.log(`- Headers encontrados en fila ${headerRowIndex + 1}:`, headers);
-    
     // Los datos empiezan después de los headers
     const dataRows = data.slice(headerRowIndex + 1);
     const dataFiltered = dataRows.filter(row => row && row[29] && !isNaN(parseFloat(String(row[29]))));
-    console.log(`- Después de filtrar: ${dataFiltered.length} filas válidas`);
     
-    return dataFiltered.slice(0, 20).map((row, index) => ({ // Limitar a 20 para debug
+    return dataFiltered.map((row, index) => ({
       id: `compra_${index}`,
       fechaEmision: new Date(),
       proveedor: String(row[8] || 'Sin proveedor'),
@@ -484,30 +455,17 @@ function normalizarComprasConDebug(data: any[]) {
 }
 
 function normalizarExtractoConDebug(data: any[]) {
-  console.log("🔍 Normalizando extracto - debug:");
-  
   if (!Array.isArray(data)) {
-    console.error("❌ Extracto no es array:", typeof data);
     return [];
   }
   
-  console.log(`- Array recibido con ${data.length} elementos`);
-  console.log(`- Primer elemento:`, data[0]);
-  console.log(`- Es array de arrays?:`, Array.isArray(data[0]));
-  
   if (Array.isArray(data[0])) {
     // Formato Excel - EXTRACTO tiene headers en primera línea
-    console.log("📋 Formato Excel detectado - EXTRACTO (headers en primera línea)");
-    
     // Headers en la primera fila, datos desde la segunda
     const headers = data[0];
     const dataRows = data.slice(1);
     
-    console.log(`- Headers:`, headers);
-    console.log(`- Datos desde fila 2: ${dataRows.length} filas`);
-    
     const dataFiltered = dataRows.filter(row => row && row[2] && !isNaN(parseFloat(String(row[2]))));
-    console.log(`- Después de filtrar: ${dataFiltered.length} filas válidas`);
     
     return dataFiltered.map((row, index) => {
       const importe = parseFloat(String(row[2]));

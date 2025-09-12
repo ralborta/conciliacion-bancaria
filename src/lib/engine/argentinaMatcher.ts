@@ -163,10 +163,11 @@ export class ArgentinaMatchingEngine {
 
   // ✅ MEJORA 1: Logging Detallado (AGREGAR PRIMERO - BAJO RIESGO)
   private logConciliationProgress(step: string, data: any): void {
-    console.log(`🔍 [Conciliación] ${step}:`, {
-      timestamp: new Date().toISOString(),
-      ...data
-    });
+    // Logs deshabilitados para evitar rate limit de Railway
+    // console.log(`🔍 [Conciliación] ${step}:`, {
+    //   timestamp: new Date().toISOString(),
+    //   ...data
+    // });
   }
 
   // MÉTODO PRINCIPAL: Calcular score total
