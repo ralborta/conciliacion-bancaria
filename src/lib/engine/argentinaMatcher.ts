@@ -29,6 +29,10 @@ export class ArgentinaMatchingEngine {
       name: 'MONTO_CON_RETENCIONES',
       weight: 0.25,
       evaluate: (bank, doc) => {
+        // PRIMERO: Verificar que las fechas estén cerca (máximo 30 días)
+        const daysDiff = Math.abs((bank.fechaOperacion.getTime() - doc.fechaEmision.getTime()) / (1000 * 60 * 60 * 24));
+        if (daysDiff > 30) return 0; // Si la fecha está muy lejos, no hacer match
+        
         // Calcular posibles retenciones
         const retenciones = {
           IIBB: doc.total * 0.03,        // 3%
