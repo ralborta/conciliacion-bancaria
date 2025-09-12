@@ -208,11 +208,6 @@ export class ArgentinaMatchingEngine {
       totalExtractoEgresos: extracto.filter(e => (e.importe || 0) < 0).reduce((sum, e) => sum + Math.abs(e.importe || 0), 0)
     });
 
-    // 🔍 DEBUG: Mostrar muestras de datos (reducido para evitar rate limit)
-    console.log("🔍 DEBUG - Muestra de VENTAS:", ventas.length > 0 ? ventas[0] : "VACÍO");
-    console.log("🔍 DEBUG - Muestra de COMPRAS:", compras.length > 0 ? compras[0] : "VACÍO");
-    console.log("🔍 DEBUG - Muestra de EXTRACTO:", extracto.length > 0 ? extracto[0] : "VACÍO");
-
     const matches: MatchResult[] = []
 
     // Preparar documentos con tipo
@@ -221,20 +216,14 @@ export class ArgentinaMatchingEngine {
       ...ventas.map(v => ({ ...v, tipo: 'VENTA' }))
     ];
 
-    console.log("🔍 DEBUG - Total documentos preparados:", documents.length);
-    console.log("🔍 DEBUG - Muestra de documentos:", documents.length > 0 ? documents[0] : "VACÍO");
-
-    // Procesar cada movimiento bancario (reducido para evitar rate limit)
-    console.log("🔍 DEBUG - Procesando movimientos...");
-    for (let i = 0; i < Math.min(extracto.length, 3); i++) { // Reducido a 3
+    // Procesar cada movimiento bancario (SIN LOGS DETALLADOS)
+    for (let i = 0; i < extracto.length; i++) {
       const extractoItem = extracto[i];
-      console.log(`🔍 DEBUG - Movimiento ${i + 1}: ${extractoItem.concepto} - $${extractoItem.importe}`);
-
       let bestMatch: MatchResult | null = null
       let bestScore = 0
 
       // Buscar el mejor match entre todos los documentos
-      for (let j = 0; j < Math.min(documents.length, 2); j++) { // Reducido a 2
+      for (let j = 0; j < documents.length; j++) {
         const document = documents[j];
         const result = this.calculateMatchScore(extractoItem, document);
         
