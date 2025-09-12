@@ -212,9 +212,18 @@ async function procesarConciliacionConDebug(ventasFile: File, comprasFile: File,
     
     // MOTOR AVANZADO DE CONCILIACIÓN ARGENTINA
     console.log("🚀 Iniciando motor avanzado de conciliación...");
+    console.log("📊 Datos a procesar:", {
+      ventas: ventasNormalizadas.length,
+      compras: comprasNormalizadas.length,
+      extracto: extractoNormalizado.length,
+      muestraVentas: ventasNormalizadas.slice(0, 2),
+      muestraCompras: comprasNormalizadas.slice(0, 2),
+      muestraExtracto: extractoNormalizado.slice(0, 2)
+    });
     
     try {
       // Usar el motor avanzado que ya implementamos
+      console.log("🔄 Llamando a engine.runMatching...");
       const resultados = await engine.runMatching(
         ventasNormalizadas,
         comprasNormalizadas, 
@@ -225,7 +234,8 @@ async function procesarConciliacionConDebug(ventasFile: File, comprasFile: File,
         totalResultados: resultados.length,
         matchesExactos: resultados.filter(r => r.score >= 0.9).length,
         matchesParciales: resultados.filter(r => r.score < 0.9 && r.score > 0).length,
-        sinMatch: resultados.filter(r => r.score === 0).length
+        sinMatch: resultados.filter(r => r.score === 0).length,
+        muestraResultados: resultados.slice(0, 3)
       });
       
       return resultados;
