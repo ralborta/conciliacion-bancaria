@@ -5,11 +5,29 @@ import { ProcessOptions, ConciliationStats } from '@/lib/types/conciliacion'
 
 // ===== DEBUG: POR QUÉ NO SALEN RESULTADOS =====
 
+// CORS headers
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+export async function OPTIONS() {
+  return new Response(null, { status: 200, headers: corsHeaders });
+}
+
 export async function POST(request: NextRequest) {
   console.log("🚀 API LLAMADA - Inicio");
   console.log("🔍 Request headers:", Object.fromEntries(request.headers.entries()));
   console.log("🔍 Request method:", request.method);
   console.log("🔍 Request URL:", request.url);
+  
+  // CORS headers
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };
   
   try {
     console.log("📥 Parseando formData...");
@@ -39,7 +57,7 @@ export async function POST(request: NextRequest) {
         tieneBanco: !!banco,
         tienePeriodo: !!periodo
       });
-      return NextResponse.json({ error: "Datos faltantes" }, { status: 400 });
+      return NextResponse.json({ error: "Datos faltantes" }, { status: 400, headers: corsHeaders });
     }
 
     console.log("🔄 Iniciando procesamiento...");
@@ -121,7 +139,7 @@ export async function POST(request: NextRequest) {
         timestamp: new Date().toISOString(),
         totalProcessed: resultado.length || 0
       }
-    });
+    }, { headers: corsHeaders });
     
   } catch (error) {
     console.error("❌ ERROR EN API:", error);
@@ -132,7 +150,7 @@ export async function POST(request: NextRequest) {
       success: false, 
       error: errorObj.message,
       stack: errorObj.stack 
-    }, { status: 500 });
+    }, { status: 500, headers: corsHeaders });
   }
 }
 
