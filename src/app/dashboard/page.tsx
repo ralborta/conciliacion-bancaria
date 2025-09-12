@@ -68,31 +68,42 @@ export default function DashboardPage() {
     
     const steps: ProcessingStep[] = [
       { id: 'step-1', name: 'Validando archivos', status: 'pending', progress: 25 },
-      { id: 'step-2', name: 'Normalizando datos', status: 'pending', progress: 50 },
-      { id: 'step-3', name: 'Ejecutando motor de matching', status: 'pending', progress: 75 },
+      { id: 'step-2', name: 'Enviando a procesar', status: 'pending', progress: 50 },
+      { id: 'step-3', name: 'Ejecutando conciliación', status: 'pending', progress: 75 },
       { id: 'step-4', name: 'Generando reporte', status: 'pending', progress: 100 }
     ]
     
     setProcessingSteps(steps)
     
     try {
-      // Simulate processing steps
-      for (let i = 0; i < steps.length; i++) {
-        setCurrentStep(i)
-        setProgress(steps[i].progress)
-        setStatus(steps[i].name + '...')
-        
-        // Update step status
-        setProcessingSteps(prev => 
-          prev.map((step, index) => ({
-            ...step,
-            status: index < i ? 'completed' : index === i ? 'processing' : 'pending'
-          }))
-        )
-        
-        // Wait for step completion
-        await new Promise(resolve => setTimeout(resolve, 1500))
+      // PASO 1: Validar archivos
+      setCurrentStep(0)
+      setProgress(25)
+      setStatus('Validando archivos...')
+      setProcessingSteps(prev => 
+        prev.map((step, index) => ({
+          ...step,
+          status: index === 0 ? 'processing' : 'pending'
+        }))
+      )
+      
+      // Verificar que los archivos existen
+      if (!files.ventas?.file || !files.compras?.file || !files.extracto?.file) {
+        throw new Error('Faltan archivos requeridos')
       }
+      
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+      // PASO 2: Preparar datos
+      setCurrentStep(1)
+      setProgress(50)
+      setStatus('Enviando a procesar...')
+      setProcessingSteps(prev => 
+        prev.map((step, index) => ({
+          ...step,
+          status: index < 1 ? 'completed' : index === 1 ? 'processing' : 'pending'
+        }))
+      )
       
       // Prepare form data
       const formData = new FormData()
@@ -102,24 +113,69 @@ export default function DashboardPage() {
       formData.append('banco', banco)
       formData.append('periodo', periodo)
       
-      // Call API
+      // PASO 3: Llamar API y ESPERAR respuesta
+      setCurrentStep(2)
+      setProgress(75)
+      setStatus('Ejecutando conciliación...')
+      setProcessingSteps(prev => 
+        prev.map((step, index) => ({
+          ...step,
+          status: index < 2 ? 'completed' : index === 2 ? 'processing' : 'pending'
+        }))
+      )
+      
+      console.log("🚀 Frontend - Iniciando conciliación");
+      console.log("📊 Datos a enviar:", {
+        ventas: files.ventas?.file?.name,
+        compras: files.compras?.file?.name,
+        extracto: files.extracto?.file?.name,
+        banco,
+        periodo
+      });
+      
+      // Call API y ESPERAR la respuesta
       const response = await fetch('/api/conciliation/process', {
         method: 'POST',
         body: formData
       })
       
+      console.log("🌐 Response status:", response.status);
+      console.log("🌐 Response ok:", response.ok);
+      
       if (!response.ok) {
-        throw new Error('Error al procesar la conciliación')
+        const errorText = await response.text();
+        console.error("❌ Error HTTP:", errorText);
+        throw new Error(`Error HTTP ${response.status}: ${errorText}`);
       }
       
-      const result = await response.json()
+      const result = await response.json();
+      console.log("✅ Resultado completo:", result);
       
-      // Navigate to results
+      if (!result.success) {
+        throw new Error(result.error || 'Error en el procesamiento');
+      }
+      
+      // PASO 4: Completar
+      setCurrentStep(3)
+      setProgress(100)
+      setStatus('Generando reporte...')
+      setProcessingSteps(prev => 
+        prev.map((step, index) => ({
+          ...step,
+          status: index < 3 ? 'completed' : index === 3 ? 'processing' : 'pending'
+        }))
+      )
+      
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+      // ✅ SOLO navegar DESPUÉS de que termine todo
+      console.log("🎯 Navegando a resultados con sessionId:", result.sessionId);
       router.push(`/dashboard/results?sessionId=${result.sessionId}`)
       
     } catch (error) {
-      console.error('Error processing conciliation:', error)
-      alert('Error al procesar la conciliación')
+      console.error("❌ Error completo:", error);
+      const errorObj = error as Error;
+      setStatus(`Error: ${errorObj.message}`)
     } finally {
       setIsProcessing(false)
     }
