@@ -161,19 +161,39 @@ async function procesarConciliacionConDebug(ventasFile: File, comprasFile: File,
   try {
     // PASO 1: Parsear archivos
     console.log("PASO 1 - Parseando archivos...");
+    console.log("📁 Archivos recibidos:", {
+      ventas: { name: ventasFile.name, size: ventasFile.size, type: ventasFile.type },
+      compras: { name: comprasFile.name, size: comprasFile.size, type: comprasFile.type },
+      extracto: { name: extractoFile.name, size: extractoFile.size, type: extractoFile.type }
+    });
     
     const engine = new ConciliationEngine();
     const options: ProcessOptions = { banco, periodo };
     
     // Parsear archivos individualmente para debug
+    console.log("🔄 Parseando ventas...");
     const ventasData = await parseFileToArray(ventasFile);
-    const comprasData = await parseFileToArray(comprasFile);
-    const extractoData = await parseFileToArray(extractoFile);
+    console.log("✅ Ventas parseadas:", { 
+      esArray: Array.isArray(ventasData), 
+      length: ventasData?.length || 0,
+      muestra: ventasData?.slice?.(0, 2) || "No es array"
+    });
     
-    console.log("PASO 1 - Datos parseados:");
-    console.log("- Ventas raw:", ventasData?.slice?.(0, 2) || "No es array");
-    console.log("- Compras raw:", comprasData?.slice?.(0, 2) || "No es array");
-    console.log("- Extracto raw:", extractoData?.slice?.(0, 2) || "No es array");
+    console.log("🔄 Parseando compras...");
+    const comprasData = await parseFileToArray(comprasFile);
+    console.log("✅ Compras parseadas:", { 
+      esArray: Array.isArray(comprasData), 
+      length: comprasData?.length || 0,
+      muestra: comprasData?.slice?.(0, 2) || "No es array"
+    });
+    
+    console.log("🔄 Parseando extracto...");
+    const extractoData = await parseFileToArray(extractoFile);
+    console.log("✅ Extracto parseado:", { 
+      esArray: Array.isArray(extractoData), 
+      length: extractoData?.length || 0,
+      muestra: extractoData?.slice?.(0, 2) || "No es array"
+    });
     
     // PASO 2: Normalización con logging
     console.log("PASO 2 - Normalizando...");
