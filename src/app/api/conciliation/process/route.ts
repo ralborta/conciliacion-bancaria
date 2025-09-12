@@ -122,38 +122,71 @@ export async function POST(request: NextRequest) {
 
     // IMPORTANTE: Estructura de respuesta esperada por el frontend
     const totalMovimientos = stats.totalMovimientos || 0;
+    const totalCompras = 0; // Por ahora hardcodeado
+    const totalVentas = 0; // Por ahora hardcodeado
     const conciliados = stats.conciliados || 0;
     const pendientes = stats.pendientes || 0;
+    
+    console.log('📊 DATOS FINALES PARA ENVIAR:');
+    console.log(`- Compras: ${totalCompras}`);
+    console.log(`- Ventas: ${totalVentas}`);
+    console.log(`- Extracto: ${totalMovimientos}`);
+    console.log(`- Conciliados: ${conciliados}`);
+    console.log(`- Pendientes: ${pendientes}`);
     
     const response = {
       success: true,
       sessionId,
       data: {  // El frontend espera 'data', no 'results'
         totalMovimientos,
+        totalCompras,
+        totalVentas,
         conciliados,
         pendientes,
         porcentajeConciliado: totalMovimientos > 0 ? (conciliados / totalMovimientos) * 100 : 0,
         montoTotal: stats.montoTotal || 0,
         
-        // Datos para la tabla - usar datos mock por ahora
-        movements: Array.from({ length: Math.min(totalMovimientos, 10) }, (_, index) => ({
+        // INCLUIR LOS MOVIMIENTOS REALES (usar datos mock por ahora)
+        movements: Array.from({ length: Math.min(totalMovimientos, 50) }, (_, index) => ({
           id: `mov_${index}`,
           fecha: new Date().toISOString().split('T')[0],
           concepto: `Movimiento ${index + 1}`,
-          monto: Math.random() * 10000 - 5000, // Valores aleatorios para demo
+          monto: Math.random() * 10000 - 5000,
           tipo: Math.random() > 0.5 ? 'Crédito' : 'Débito',
           estado: 'pending',
-          referencia: `MOV-${Math.random().toString(36).substr(2, 9)}`,
+          referencia: `REF-${index}`,
           banco: banco,
           cuenta: 'Cuenta Principal'
+        })),
+        
+        // INCLUIR LAS COMPRAS REALES (usar datos mock por ahora)
+        compras: Array.from({ length: Math.min(totalCompras, 20) }, (_, i) => ({
+          id: `compra_${i}`,
+          fecha: new Date().toISOString().split('T')[0],
+          proveedor: `Proveedor ${i + 1}`,
+          total: Math.random() * 50000,
+          tipo: 'Compra',
+          cuit: `20${Math.random().toString().substr(2, 8)}`
+        })),
+        
+        // INCLUIR LAS VENTAS REALES (usar datos mock por ahora)
+        ventas: Array.from({ length: Math.min(totalVentas, 20) }, (_, i) => ({
+          id: `venta_${i}`,
+          fecha: new Date().toISOString().split('T')[0],
+          cliente: `Cliente ${i + 1}`,
+          total: Math.random() * 30000,
+          tipo: 'Venta',
+          cuit: `20${Math.random().toString().substr(2, 8)}`
         }))
       },
       stats: {
         totalMovimientos,
+        totalCompras,
+        totalVentas,
         conciliados,
         pendientes,
         montoTotal: stats.montoTotal || 0,
-        porcentajeConciliacion: stats.porcentajeConciliacion || 0
+        porcentajeConciliacion: totalMovimientos > 0 ? (conciliados / totalMovimientos) * 100 : 0
       }
     }
     
@@ -161,9 +194,13 @@ export async function POST(request: NextRequest) {
       success: true,
       totalMovimientos: response.data.totalMovimientos,
       movements: response.data.movements.length,
+      compras: response.data.compras.length,
+      ventas: response.data.ventas.length,
       conciliados: response.data.conciliados,
       pendientes: response.data.pendientes
     })
+    
+    console.log("✅ Enviando respuesta con", response.data.movements.length, "movimientos");
     
     return NextResponse.json(response, { headers: corsHeaders });
     
