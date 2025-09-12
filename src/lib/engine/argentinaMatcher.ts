@@ -197,7 +197,7 @@ export class ArgentinaMatchingEngine {
     compras: CompraCanon[],
     extracto: ExtractoCanon[]
   ): Promise<MatchResult[]> {
-    // ✅ AGREGAR SOLO ESTAS LÍNEAS al inicio del método existente
+    // ✅ DEBUG INTENSIVO - Verificar datos de entrada
     this.logConciliationProgress('INICIO', {
       ventas: ventas.length,
       compras: compras.length, 
@@ -208,6 +208,11 @@ export class ArgentinaMatchingEngine {
       totalExtractoEgresos: extracto.filter(e => (e.importe || 0) < 0).reduce((sum, e) => sum + Math.abs(e.importe || 0), 0)
     });
 
+    // 🔍 DEBUG: Mostrar muestras de datos
+    console.log("🔍 DEBUG - Muestra de VENTAS:", ventas.slice(0, 2));
+    console.log("🔍 DEBUG - Muestra de COMPRAS:", compras.slice(0, 2));
+    console.log("🔍 DEBUG - Muestra de EXTRACTO:", extracto.slice(0, 2));
+
     const matches: MatchResult[] = []
 
     // Preparar documentos con tipo
@@ -216,15 +221,40 @@ export class ArgentinaMatchingEngine {
       ...ventas.map(v => ({ ...v, tipo: 'VENTA' }))
     ];
 
+    console.log("🔍 DEBUG - Total documentos preparados:", documents.length);
+    console.log("🔍 DEBUG - Muestra de documentos:", documents.slice(0, 2));
+
     // Procesar cada movimiento bancario
-    for (const extractoItem of extracto) {
+    for (let i = 0; i < Math.min(extracto.length, 5); i++) { // Limitar a 5 para debug
+      const extractoItem = extracto[i];
+      console.log(`\n🔍 DEBUG - Procesando movimiento ${i + 1}:`, {
+        id: extractoItem.id,
+        concepto: extractoItem.concepto,
+        importe: extractoItem.importe,
+        fecha: extractoItem.fechaOperacion
+      });
+
       let bestMatch: MatchResult | null = null
       let bestScore = 0
       let bestDetails: any = {}
 
       // Buscar el mejor match entre todos los documentos
-      for (const document of documents) {
+      for (let j = 0; j < Math.min(documents.length, 3); j++) { // Limitar a 3 para debug
+        const document = documents[j];
+        console.log(`  🔍 DEBUG - Comparando con documento ${j + 1}:`, {
+          id: document.id,
+          tipo: document.tipo,
+          total: document.total,
+          cuit: (document as any).cuitCliente || (document as any).cuitProveedor
+        });
+
         const result = this.calculateMatchScore(extractoItem, document);
+        console.log(`  📊 DEBUG - Score calculado:`, {
+          totalScore: result.totalScore,
+          isMatch: result.isMatch,
+          needsReview: result.needsReview,
+          details: result.details
+        });
         
         if (result.totalScore > bestScore) {
           bestScore = result.totalScore;
@@ -239,10 +269,54 @@ export class ArgentinaMatchingEngine {
             tipo: document.tipo as 'venta' | 'compra',
             reason: this.generateMatchReason(result.details, result.totalScore)
           };
+
+          console.log(`  ✅ DEBUG - Nuevo mejor match encontrado:`, {
+            score: result.totalScore,
+            reason: bestMatch.reason
+          });
         }
       }
 
       // Si no hay match, marcar como pendiente
+      if (!bestMatch) {
+        bestMatch = {
+          id: `match_${extractoItem.id}`,
+          extractoItem,
+          matchedWith: null,
+          score: 0,
+          status: 'pending',
+          reason: 'No se encontró coincidencia con reglas argentinas'
+        };
+        console.log(`  ❌ DEBUG - Sin match para movimiento ${i + 1}`);
+      }
+
+      matches.push(bestMatch)
+    }
+
+    // Procesar el resto sin debug detallado
+    for (let i = 5; i < extracto.length; i++) {
+      const extractoItem = extracto[i];
+      let bestMatch: MatchResult | null = null
+      let bestScore = 0
+
+      for (const document of documents) {
+        const result = this.calculateMatchScore(extractoItem, document);
+        
+        if (result.totalScore > bestScore) {
+          bestScore = result.totalScore;
+          
+          bestMatch = {
+            id: `match_${extractoItem.id}_${document.id}`,
+            extractoItem,
+            matchedWith: document,
+            score: result.totalScore,
+            status: result.isMatch ? 'matched' : result.needsReview ? 'suggested' : 'pending',
+            tipo: document.tipo as 'venta' | 'compra',
+            reason: this.generateMatchReason(result.details, result.totalScore)
+          };
+        }
+      }
+
       if (!bestMatch) {
         bestMatch = {
           id: `match_${extractoItem.id}`,
