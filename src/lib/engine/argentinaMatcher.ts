@@ -1,15 +1,165 @@
 import { VentaCanon, CompraCanon, ExtractoCanon, MatchResult } from '@/lib/types/conciliacion'
 
-export class ArgentinaMatchingEngine {
-  private retenciones = {
-    IIBB: 0.03,      // 3% Ingresos Brutos
-    SIRCREB: 0.02,   // 2% SIRCREB
-    Ganancias: 0.02, // 2% Ganancias
-    IVA: 0.01        // 1% IVA
-  }
+interface MatchingCriteria {
+  weight: number;
+  name: string;
+  evaluate: (bankMovement: any, document: any) => number;
+}
 
-  private maxDaysDifference = 30
-  private amountTolerance = 0.02 // 2%
+export class ArgentinaMatchingEngine {
+  private criteria: MatchingCriteria[] = [
+    // 1. MATCH POR MONTO EXACTO (peso: 35%)
+    {
+      name: 'MONTO_EXACTO',
+      weight: 0.35,
+      evaluate: (bank, doc) => {
+        const difference = Math.abs(Math.abs(bank.importe) - doc.total);
+        const percentage = difference / doc.total;
+        if (percentage < 0.001) return 1.0;  // Exacto
+        if (percentage < 0.01) return 0.9;   // 1% diferencia
+        if (percentage < 0.02) return 0.7;   // 2% diferencia
+        if (percentage < 0.05) return 0.5;   // 5% diferencia (retenciones)
+        if (percentage < 0.10) return 0.3;   // 10% diferencia
+        return 0;
+      }
+    },
+
+    // 2. MATCH POR MONTO CON RETENCIONES (peso: 25%)
+    {
+      name: 'MONTO_CON_RETENCIONES',
+      weight: 0.25,
+      evaluate: (bank, doc) => {
+        // Calcular posibles retenciones
+        const retenciones = {
+          IIBB: doc.total * 0.03,        // 3%
+          SIRCREB: doc.total * 0.02,     // 2%
+          Ganancias: doc.total * 0.02,   // 2%
+          IVA: doc.total * 0.01,         // 1%
+          IDC: Math.abs(bank.importe) * 0.006  // 0.6% sobre el débito
+        };
+        
+        const totalRetenciones = Object.values(retenciones).reduce((a, b) => a + b, 0);
+        const montoConRetenciones = doc.total - totalRetenciones;
+        const difference = Math.abs(Math.abs(bank.importe) - montoConRetenciones);
+        
+        if (difference < doc.total * 0.01) return 1.0;
+        if (difference < doc.total * 0.03) return 0.7;
+        if (difference < doc.total * 0.05) return 0.4;
+        return 0;
+      }
+    },
+
+    // 3. MATCH POR FECHA (peso: 20%)
+    {
+      name: 'PROXIMIDAD_FECHA',
+      weight: 0.20,
+      evaluate: (bank, doc) => {
+        const daysDiff = Math.abs((bank.fechaOperacion.getTime() - doc.fechaEmision.getTime()) / (1000 * 60 * 60 * 24));
+        if (daysDiff === 0) return 1.0;      // Mismo día
+        if (daysDiff <= 2) return 0.9;       // 2 días
+        if (daysDiff <= 5) return 0.7;       // 5 días (semana laboral)
+        if (daysDiff <= 10) return 0.5;      // 10 días
+        if (daysDiff <= 30) return 0.3;      // Mes
+        if (daysDiff <= 60) return 0.1;      // 2 meses
+        return 0;
+      }
+    },
+
+    // 4. MATCH POR CUIT EN CONCEPTO (peso: 15%)
+    {
+      name: 'CUIT_EN_CONCEPTO',
+      weight: 0.15,
+      evaluate: (bank, doc) => {
+        const concepto = bank.concepto || '';
+        const cuitRegex = /\d{11}/g;
+        const cuitsEnConcepto = concepto.match(cuitRegex) || [];
+        
+        // Buscar CUIT del documento en el concepto
+        const docCuit = doc.cuitCliente || doc.cuitProveedor;
+        if (docCuit && cuitsEnConcepto.includes(docCuit)) {
+          return 1.0;
+        }
+        
+        // Buscar CUIT parcial (últimos 8 dígitos)
+        if (docCuit) {
+          const cuitParcial = docCuit.slice(-8);
+          if (concepto.includes(cuitParcial)) return 0.7;
+        }
+        
+        return 0;
+      }
+    },
+
+    // 5. MATCH POR NOMBRE EN CONCEPTO (peso: 10%)
+    {
+      name: 'NOMBRE_EN_CONCEPTO',
+      weight: 0.10,
+      evaluate: (bank, doc) => {
+        const concepto = (bank.concepto || '').toUpperCase();
+        const nombre = (doc.cuitCliente || doc.cuitProveedor || '').toUpperCase();
+        
+        if (!nombre) return 0;
+        
+        // Extraer nombre del concepto bancario (después de "N:")
+        const matchNombre = concepto.match(/N:([^-]+)/);
+        if (matchNombre) {
+          const nombreEnConcepto = matchNombre[1].trim();
+          if (nombreEnConcepto === nombre) return 1.0;
+          if (nombreEnConcepto.includes(nombre) || nombre.includes(nombreEnConcepto)) return 0.7;
+        }
+        
+        // Buscar palabras clave del nombre
+        const palabrasNombre = nombre.split(' ').filter((p: string) => p.length > 3);
+        const palabrasEncontradas = palabrasNombre.filter((p: string) => concepto.includes(p));
+        
+        return palabrasEncontradas.length / palabrasNombre.length;
+      }
+    },
+
+    // 6. MATCH POR REFERENCIA (peso: 10%)
+    {
+      name: 'REFERENCIA',
+      weight: 0.10,
+      evaluate: (bank, doc) => {
+        const concepto = bank.concepto || '';
+        
+        // Buscar número de factura en concepto
+        if (doc.referenciaExterna) {
+          if (concepto.includes(doc.referenciaExterna)) return 1.0;
+        }
+        
+        // Buscar código de operación
+        const codigoOp = concepto.match(/C\.(\d+)/);
+        if (codigoOp && doc.ordenPago === codigoOp[1]) {
+          return 1.0;
+        }
+        
+        return 0;
+      }
+    },
+
+    // 7. MATCH POR TIPO DE OPERACIÓN (peso: 5%)
+    {
+      name: 'TIPO_OPERACION',
+      weight: 0.05,
+      evaluate: (bank, doc) => {
+        const concepto = (bank.concepto || '').toUpperCase();
+        
+        // Identificar tipo de operación
+        const esTransferencia = concepto.includes('BIP') || concepto.includes('TR') || concepto.includes('TRANSF');
+        const esDebito = concepto.includes('DEBITO') || concepto.includes('DB');
+        const esPago = concepto.includes('PAGO') || concepto.includes('P.SERV');
+        
+        // Para compras esperamos débitos/transferencias
+        if (doc.tipo === 'COMPRA' && (esTransferencia || esDebito || esPago)) return 1.0;
+        
+        // Para ventas esperamos créditos
+        if (doc.tipo === 'VENTA' && bank.importe > 0) return 1.0;
+        
+        return 0;
+      }
+    }
+  ];
 
   // ✅ MEJORA 1: Logging Detallado (AGREGAR PRIMERO - BAJO RIESGO)
   private logConciliationProgress(step: string, data: any): void {
@@ -17,6 +167,29 @@ export class ArgentinaMatchingEngine {
       timestamp: new Date().toISOString(),
       ...data
     });
+  }
+
+  // MÉTODO PRINCIPAL: Calcular score total
+  calculateMatchScore(bankMovement: any, document: any): any {
+    let totalScore = 0;
+    const details: any = {};
+    
+    this.criteria.forEach(criterion => {
+      const score = criterion.evaluate(bankMovement, document);
+      const weightedScore = score * criterion.weight;
+      totalScore += weightedScore;
+      details[criterion.name] = {
+        score,
+        weighted: weightedScore
+      };
+    });
+    
+    return {
+      totalScore,
+      details,
+      isMatch: totalScore >= 0.7,        // 70% para match automático
+      needsReview: totalScore >= 0.5 && totalScore < 0.7  // 50-70% revisión manual
+    };
   }
 
   async processArgentinaMatching(
@@ -37,47 +210,35 @@ export class ArgentinaMatchingEngine {
 
     const matches: MatchResult[] = []
 
+    // Preparar documentos con tipo
+    const documents = [
+      ...compras.map(c => ({ ...c, tipo: 'COMPRA' })),
+      ...ventas.map(v => ({ ...v, tipo: 'VENTA' }))
+    ];
+
+    // Procesar cada movimiento bancario
     for (const extractoItem of extracto) {
       let bestMatch: MatchResult | null = null
       let bestScore = 0
+      let bestDetails: any = {}
 
-      // 1. MATCHING POR PAGOS PARCIALES (Compras)
-      const partialMatches = await this.matchPartialPayments(extractoItem, compras)
-      if (partialMatches.length > 0) {
-        const bestPartial = partialMatches[0]
-        if (bestPartial.score > bestScore) {
-          bestScore = bestPartial.score
-          bestMatch = bestPartial
-        }
-      }
-
-      // 2. MATCHING POR CUIT EN CONCEPTO
-      const cuitMatches = await this.matchByCUIT(extractoItem, compras, ventas)
-      if (cuitMatches.length > 0) {
-        const bestCuit = cuitMatches[0]
-        if (bestCuit.score > bestScore) {
-          bestScore = bestCuit.score
-          bestMatch = bestCuit
-        }
-      }
-
-      // 3. MATCHING CON RETENCIONES
-      const retentionMatches = await this.matchWithRetentions(extractoItem, compras, ventas)
-      if (retentionMatches.length > 0) {
-        const bestRetention = retentionMatches[0]
-        if (bestRetention.score > bestScore) {
-          bestScore = bestRetention.score
-          bestMatch = bestRetention
-        }
-      }
-
-      // 4. MATCHING TRADICIONAL (como fallback)
-      const traditionalMatches = await this.matchTraditional(extractoItem, compras, ventas)
-      if (traditionalMatches.length > 0) {
-        const bestTraditional = traditionalMatches[0]
-        if (bestTraditional.score > bestScore) {
-          bestScore = bestTraditional.score
-          bestMatch = bestTraditional
+      // Buscar el mejor match entre todos los documentos
+      for (const document of documents) {
+        const result = this.calculateMatchScore(extractoItem, document);
+        
+        if (result.totalScore > bestScore) {
+          bestScore = result.totalScore;
+          bestDetails = result.details;
+          
+          bestMatch = {
+            id: `match_${extractoItem.id}_${document.id}`,
+            extractoItem,
+            matchedWith: document,
+            score: result.totalScore,
+            status: result.isMatch ? 'matched' : result.needsReview ? 'suggested' : 'pending',
+            tipo: document.tipo as 'venta' | 'compra',
+            reason: this.generateMatchReason(result.details, result.totalScore)
+          };
         }
       }
 
@@ -107,210 +268,20 @@ export class ArgentinaMatchingEngine {
     return matches
   }
 
-  // 1. MATCHING POR PAGOS PARCIALES
-  private async matchPartialPayments(
-    extractoItem: ExtractoCanon,
-    compras: CompraCanon[]
-  ): Promise<MatchResult[]> {
-    const matches: MatchResult[] = []
-    const extractoAmount = Math.abs(extractoItem.importe)
-    const extractoDate = extractoItem.fechaOperacion
-
-    for (const compra of compras) {
-      const compraAmount = compra.total
-      const compraDate = compra.fechaEmision
-      
-      // Verificar si es un pago parcial (entre 10% y 100% del total)
-      const percentage = extractoAmount / compraAmount
-      if (percentage >= 0.1 && percentage <= 1.0) {
-        
-        // Verificar diferencia de fechas (hasta 30 días)
-        const daysDiff = Math.abs(extractoDate.getTime() - compraDate.getTime()) / (1000 * 60 * 60 * 24)
-        if (daysDiff <= this.maxDaysDifference) {
-          
-          // Calcular score basado en porcentaje y fecha
-          let score = 0.5 // Base score para pago parcial
-          
-          // Mejor score si es pago completo
-          if (percentage >= 0.95) score += 0.3
-          else if (percentage >= 0.8) score += 0.2
-          else if (percentage >= 0.5) score += 0.1
-          
-          // Mejor score si la fecha es cercana
-          if (daysDiff <= 1) score += 0.2
-          else if (daysDiff <= 7) score += 0.1
-          else if (daysDiff <= 15) score += 0.05
-
-          matches.push({
-            id: `partial_${extractoItem.id}_${compra.id}`,
-            extractoItem,
-            matchedWith: compra,
-            score,
-            status: score >= 0.8 ? 'matched' : 'suggested',
-            tipo: 'compra',
-            reason: `Pago parcial del ${Math.round(percentage * 100)}% (${daysDiff.toFixed(0)} días de diferencia)`
-          })
-        }
-      }
-    }
-
-    return matches.sort((a, b) => b.score - a.score)
-  }
-
-  // 2. MATCHING POR CUIT EN CONCEPTO
-  private async matchByCUIT(
-    extractoItem: ExtractoCanon,
-    compras: CompraCanon[],
-    ventas: VentaCanon[]
-  ): Promise<MatchResult[]> {
-    const matches: MatchResult[] = []
+  private generateMatchReason(details: any, totalScore: number): string {
+    const reasons = [];
     
-    // Extraer CUIT del concepto bancario
-    const cuitRegex = /\d{11}/g
-    const cuitMatches = extractoItem.concepto.match(cuitRegex)
+    if (details.MONTO_EXACTO?.score > 0.8) reasons.push('Monto exacto');
+    if (details.MONTO_CON_RETENCIONES?.score > 0.5) reasons.push('Monto con retenciones');
+    if (details.PROXIMIDAD_FECHA?.score > 0.7) reasons.push('Fecha cercana');
+    if (details.CUIT_EN_CONCEPTO?.score > 0.5) reasons.push('CUIT coincidente');
+    if (details.NOMBRE_EN_CONCEPTO?.score > 0.5) reasons.push('Nombre en concepto');
+    if (details.REFERENCIA?.score > 0.5) reasons.push('Referencia coincidente');
+    if (details.TIPO_OPERACION?.score > 0.5) reasons.push('Tipo de operación');
     
-    if (cuitMatches) {
-      const cuit = cuitMatches[0]
-      
-      // Buscar en compras
-      const compraMatch = compras.find(compra => compra.cuitProveedor === cuit)
-      if (compraMatch) {
-        const score = this.calculateCUITScore(extractoItem, compraMatch)
-        matches.push({
-          id: `cuit_${extractoItem.id}_${compraMatch.id}`,
-          extractoItem,
-          matchedWith: compraMatch,
-          score,
-          status: score >= 0.8 ? 'matched' : 'suggested',
-          tipo: 'compra',
-          reason: `CUIT coincidente: ${cuit}`
-        })
-      }
-
-      // Buscar en ventas
-      const ventaMatch = ventas.find(venta => venta.cuitCliente === cuit)
-      if (ventaMatch) {
-        const score = this.calculateCUITScore(extractoItem, ventaMatch)
-        matches.push({
-          id: `cuit_${extractoItem.id}_${ventaMatch.id}`,
-          extractoItem,
-          matchedWith: ventaMatch,
-          score,
-          status: score >= 0.8 ? 'matched' : 'suggested',
-          tipo: 'venta',
-          reason: `CUIT coincidente: ${cuit}`
-        })
-      }
-    }
-
-    return matches.sort((a, b) => b.score - a.score)
+    return reasons.length > 0 ? reasons.join(', ') : `Coincidencia parcial (${(totalScore * 100).toFixed(1)}%)`;
   }
 
-  // 3. MATCHING CON RETENCIONES
-  private async matchWithRetentions(
-    extractoItem: ExtractoCanon,
-    compras: CompraCanon[],
-    ventas: VentaCanon[]
-  ): Promise<MatchResult[]> {
-    const matches: MatchResult[] = []
-    const extractoAmount = Math.abs(extractoItem.importe)
-    const extractoDate = extractoItem.fechaOperacion
-
-    // Buscar en compras
-    for (const compra of compras) {
-      const compraAmount = compra.total
-      const compraDate = compra.fechaEmision
-      
-      // Calcular monto con retenciones
-      const totalRetentions = compraAmount * (this.retenciones.IIBB + this.retenciones.SIRCREB + this.retenciones.Ganancias)
-      const netAmount = compraAmount - totalRetentions
-      
-      // Verificar si el pago coincide con el monto neto
-      const amountDiff = Math.abs(extractoAmount - netAmount)
-      const tolerance = compraAmount * this.amountTolerance
-      
-      if (amountDiff <= tolerance) {
-        const daysDiff = Math.abs(extractoDate.getTime() - compraDate.getTime()) / (1000 * 60 * 60 * 24)
-        
-        if (daysDiff <= this.maxDaysDifference) {
-          let score = 0.7 // Base score para matching con retenciones
-          
-          // Mejor score si la diferencia es menor
-          if (amountDiff <= compraAmount * 0.01) score += 0.2
-          else if (amountDiff <= compraAmount * 0.02) score += 0.1
-          
-          // Mejor score si la fecha es cercana
-          if (daysDiff <= 1) score += 0.1
-
-          matches.push({
-            id: `retention_${extractoItem.id}_${compra.id}`,
-            extractoItem,
-            matchedWith: compra,
-            score,
-            status: score >= 0.8 ? 'matched' : 'suggested',
-            tipo: 'compra',
-            reason: `Monto con retenciones: ${Math.round(totalRetentions)} de retenciones aplicadas`
-          })
-        }
-      }
-    }
-
-    return matches.sort((a, b) => b.score - a.score)
-  }
-
-  // 4. MATCHING TRADICIONAL (fallback)
-  private async matchTraditional(
-    extractoItem: ExtractoCanon,
-    compras: CompraCanon[],
-    ventas: VentaCanon[]
-  ): Promise<MatchResult[]> {
-    const matches: MatchResult[] = []
-    const extractoAmount = Math.abs(extractoItem.importe)
-    const extractoDate = extractoItem.fechaOperacion
-
-    // Buscar en compras
-    for (const compra of compras) {
-      const compraAmount = compra.total
-      const compraDate = compra.fechaEmision
-      
-      const amountDiff = Math.abs(extractoAmount - compraAmount)
-      const tolerance = compraAmount * this.amountTolerance
-      
-      if (amountDiff <= tolerance) {
-        const daysDiff = Math.abs(extractoDate.getTime() - compraDate.getTime()) / (1000 * 60 * 60 * 24)
-        
-        if (daysDiff <= 7) { // Ventana más pequeña para matching tradicional
-          let score = 0.6 // Base score más bajo para matching tradicional
-          
-          if (amountDiff <= compraAmount * 0.01) score += 0.3
-          if (daysDiff <= 1) score += 0.1
-
-          matches.push({
-            id: `traditional_${extractoItem.id}_${compra.id}`,
-            extractoItem,
-            matchedWith: compra,
-            score,
-            status: score >= 0.8 ? 'matched' : 'suggested',
-            tipo: 'compra',
-            reason: 'Coincidencia tradicional'
-          })
-        }
-      }
-    }
-
-    return matches.sort((a, b) => b.score - a.score)
-  }
-
-  private calculateCUITScore(extractoItem: ExtractoCanon, item: VentaCanon | CompraCanon): number {
-    let score = 0.8 // Base score alto para CUIT match
-    
-    // Verificar diferencia de fechas
-    const daysDiff = Math.abs(extractoItem.fechaOperacion.getTime() - item.fechaEmision.getTime()) / (1000 * 60 * 60 * 24)
-    if (daysDiff <= 1) score += 0.2
-    else if (daysDiff <= 7) score += 0.1
-    
-    return Math.min(score, 1.0)
-  }
 }
 
 
