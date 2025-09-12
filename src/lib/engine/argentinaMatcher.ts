@@ -208,10 +208,10 @@ export class ArgentinaMatchingEngine {
       totalExtractoEgresos: extracto.filter(e => (e.importe || 0) < 0).reduce((sum, e) => sum + Math.abs(e.importe || 0), 0)
     });
 
-    // 🔍 DEBUG: Mostrar muestras de datos
-    console.log("🔍 DEBUG - Muestra de VENTAS:", ventas.slice(0, 2));
-    console.log("🔍 DEBUG - Muestra de COMPRAS:", compras.slice(0, 2));
-    console.log("🔍 DEBUG - Muestra de EXTRACTO:", extracto.slice(0, 2));
+    // 🔍 DEBUG: Mostrar muestras de datos (reducido para evitar rate limit)
+    console.log("🔍 DEBUG - Muestra de VENTAS:", ventas.length > 0 ? ventas[0] : "VACÍO");
+    console.log("🔍 DEBUG - Muestra de COMPRAS:", compras.length > 0 ? compras[0] : "VACÍO");
+    console.log("🔍 DEBUG - Muestra de EXTRACTO:", extracto.length > 0 ? extracto[0] : "VACÍO");
 
     const matches: MatchResult[] = []
 
@@ -222,43 +222,24 @@ export class ArgentinaMatchingEngine {
     ];
 
     console.log("🔍 DEBUG - Total documentos preparados:", documents.length);
-    console.log("🔍 DEBUG - Muestra de documentos:", documents.slice(0, 2));
+    console.log("🔍 DEBUG - Muestra de documentos:", documents.length > 0 ? documents[0] : "VACÍO");
 
-    // Procesar cada movimiento bancario
-    for (let i = 0; i < Math.min(extracto.length, 5); i++) { // Limitar a 5 para debug
+    // Procesar cada movimiento bancario (reducido para evitar rate limit)
+    console.log("🔍 DEBUG - Procesando movimientos...");
+    for (let i = 0; i < Math.min(extracto.length, 3); i++) { // Reducido a 3
       const extractoItem = extracto[i];
-      console.log(`\n🔍 DEBUG - Procesando movimiento ${i + 1}:`, {
-        id: extractoItem.id,
-        concepto: extractoItem.concepto,
-        importe: extractoItem.importe,
-        fecha: extractoItem.fechaOperacion
-      });
+      console.log(`🔍 DEBUG - Movimiento ${i + 1}: ${extractoItem.concepto} - $${extractoItem.importe}`);
 
       let bestMatch: MatchResult | null = null
       let bestScore = 0
-      let bestDetails: any = {}
 
       // Buscar el mejor match entre todos los documentos
-      for (let j = 0; j < Math.min(documents.length, 3); j++) { // Limitar a 3 para debug
+      for (let j = 0; j < Math.min(documents.length, 2); j++) { // Reducido a 2
         const document = documents[j];
-        console.log(`  🔍 DEBUG - Comparando con documento ${j + 1}:`, {
-          id: document.id,
-          tipo: document.tipo,
-          total: document.total,
-          cuit: (document as any).cuitCliente || (document as any).cuitProveedor
-        });
-
         const result = this.calculateMatchScore(extractoItem, document);
-        console.log(`  📊 DEBUG - Score calculado:`, {
-          totalScore: result.totalScore,
-          isMatch: result.isMatch,
-          needsReview: result.needsReview,
-          details: result.details
-        });
         
         if (result.totalScore > bestScore) {
           bestScore = result.totalScore;
-          bestDetails = result.details;
           
           bestMatch = {
             id: `match_${extractoItem.id}_${document.id}`,
@@ -269,11 +250,6 @@ export class ArgentinaMatchingEngine {
             tipo: document.tipo as 'venta' | 'compra',
             reason: this.generateMatchReason(result.details, result.totalScore)
           };
-
-          console.log(`  ✅ DEBUG - Nuevo mejor match encontrado:`, {
-            score: result.totalScore,
-            reason: bestMatch.reason
-          });
         }
       }
 
@@ -287,7 +263,6 @@ export class ArgentinaMatchingEngine {
           status: 'pending',
           reason: 'No se encontró coincidencia con reglas argentinas'
         };
-        console.log(`  ❌ DEBUG - Sin match para movimiento ${i + 1}`);
       }
 
       matches.push(bestMatch)
