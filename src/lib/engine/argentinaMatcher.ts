@@ -11,11 +11,30 @@ export class ArgentinaMatchingEngine {
   private maxDaysDifference = 30
   private amountTolerance = 0.02 // 2%
 
+  // ✅ MEJORA 1: Logging Detallado (AGREGAR PRIMERO - BAJO RIESGO)
+  private logConciliationProgress(step: string, data: any): void {
+    console.log(`🔍 [Conciliación] ${step}:`, {
+      timestamp: new Date().toISOString(),
+      ...data
+    });
+  }
+
   async processArgentinaMatching(
     ventas: VentaCanon[],
     compras: CompraCanon[],
     extracto: ExtractoCanon[]
   ): Promise<MatchResult[]> {
+    // ✅ AGREGAR SOLO ESTAS LÍNEAS al inicio del método existente
+    this.logConciliationProgress('INICIO', {
+      ventas: ventas.length,
+      compras: compras.length, 
+      extracto: extracto.length,
+      totalVentas: ventas.reduce((sum, v) => sum + (v.total || 0), 0),
+      totalCompras: compras.reduce((sum, c) => sum + (c.total || 0), 0),
+      totalExtractoIngresos: extracto.filter(e => (e.importe || 0) > 0).reduce((sum, e) => sum + (e.importe || 0), 0),
+      totalExtractoEgresos: extracto.filter(e => (e.importe || 0) < 0).reduce((sum, e) => sum + Math.abs(e.importe || 0), 0)
+    });
+
     const matches: MatchResult[] = []
 
     for (const extractoItem of extracto) {
@@ -76,6 +95,14 @@ export class ArgentinaMatchingEngine {
 
       matches.push(bestMatch)
     }
+
+    // ✅ AGREGAR al final del método antes del return
+    this.logConciliationProgress('RESULTADO FINAL', {
+      totalMatches: matches.length,
+      exactMatches: matches.filter(m => m.score >= 0.9).length,
+      partialMatches: matches.filter(m => m.score < 0.9 && m.score > 0).length,
+      unmatched: matches.filter(m => m.score === 0).length
+    });
 
     return matches
   }
