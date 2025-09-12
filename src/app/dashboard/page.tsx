@@ -134,7 +134,9 @@ export default function DashboardPage() {
       });
       
       // Call API y ESPERAR la respuesta
-      const response = await fetch('/api/conciliation/process', {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://conciliacion-bancaria-production.up.railway.app';
+      console.log("🌐 Llamando a API:", `${apiUrl}/api/conciliation/process`);
+      const response = await fetch(`${apiUrl}/api/conciliation/process`, {
         method: 'POST',
         body: formData
       })
