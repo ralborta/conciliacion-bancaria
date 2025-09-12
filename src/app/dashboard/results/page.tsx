@@ -31,11 +31,21 @@ function ResultsContent() {
 
   const fetchResults = async (sessionId: string) => {
     try {
-      const response = await fetch(`/api/conciliation/results/${sessionId}`)
+      // Llamar a Railway en lugar de Vercel
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://conciliacion-bancaria-production.up.railway.app';
+      console.log("🌐 Llamando a API de resultados:", `${apiUrl}/api/conciliation/results/${sessionId}`);
+      
+      const response = await fetch(`${apiUrl}/api/conciliation/results/${sessionId}`)
+      console.log("🌐 Response status:", response.status);
+      console.log("🌐 Response ok:", response.ok);
+      
       if (response.ok) {
         const data = await response.json()
+        console.log("✅ Resultados obtenidos:", data);
         setResults(data.results)
         setStats(data.stats)
+      } else {
+        console.error("❌ Error en API de resultados:", response.status, response.statusText);
       }
     } catch (error) {
       console.error('Error fetching results:', error)

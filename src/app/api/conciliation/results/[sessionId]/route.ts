@@ -1,6 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { memoryStorage } from '@/lib/storage/memory'
 
+// CORS headers
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+export async function OPTIONS() {
+  return new Response(null, { status: 200, headers: corsHeaders });
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ sessionId: string }> }
@@ -26,7 +37,7 @@ export async function GET(
       console.error("❌ SESIÓN NO ENCONTRADA:", sessionId);
       return NextResponse.json(
         { error: 'Sesión no encontrada' },
-        { status: 404 }
+        { status: 404, headers: corsHeaders }
       )
     }
     
@@ -41,14 +52,14 @@ export async function GET(
       results,
       stats,
       session
-    })
+    }, { headers: corsHeaders })
     
   } catch (error) {
     console.error("❌ ERROR EN RESULTS API:", error);
     const errorObj = error as Error;
     return NextResponse.json(
       { error: 'Error interno del servidor', details: errorObj.message },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     )
   }
 }
