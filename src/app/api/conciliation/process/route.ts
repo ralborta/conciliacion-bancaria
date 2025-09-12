@@ -98,6 +98,7 @@ export async function POST(request: NextRequest) {
     const resultado = Array.isArray(procesamiento) ? procesamiento : procesamiento.resultados;
     const ventasNormalizadas = Array.isArray(procesamiento) ? [] : procesamiento.ventasNormalizadas;
     const comprasNormalizadas = Array.isArray(procesamiento) ? [] : procesamiento.comprasNormalizadas;
+    const impuestosNormalizados = Array.isArray(procesamiento) ? [] : procesamiento.impuestosNormalizados;
     const extractoNormalizado = Array.isArray(procesamiento) ? [] : procesamiento.extractoNormalizado;
     
     console.log("✅ Procesamiento completo:", {
@@ -128,17 +129,19 @@ export async function POST(request: NextRequest) {
       createdAt: new Date(),
       status: 'completed'
     })
-
+    
     // IMPORTANTE: Estructura de respuesta esperada por el frontend
     const totalMovimientos = stats.totalMovimientos || 0;
     const totalCompras = comprasNormalizadas.length;
     const totalVentas = ventasNormalizadas.length;
+    const totalImpuestos = impuestosNormalizados.length;
     const conciliados = stats.conciliados || 0;
     const pendientes = stats.pendientes || 0;
     
     console.log('📊 DATOS FINALES PARA ENVIAR:');
     console.log(`- Compras: ${totalCompras}`);
     console.log(`- Ventas: ${totalVentas}`);
+    console.log(`- Impuestos: ${totalImpuestos}`);
     console.log(`- Extracto: ${totalMovimientos}`);
     console.log(`- Conciliados: ${conciliados}`);
     console.log(`- Pendientes: ${pendientes}`);
@@ -186,12 +189,23 @@ export async function POST(request: NextRequest) {
           total: v.total || 0,
           tipo: v.tipo || 'Venta',
           cuit: v.cuitCliente || ''
+        })),
+        
+        // INCLUIR LOS IMPUESTOS REALES
+        impuestos: impuestosNormalizados.slice(0, 20).map((imp, i) => ({
+          id: `impuesto_${i}`,
+          fecha: imp.fechaEmision?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0],
+          proveedor: imp.proveedor || `Proveedor ${i + 1}`,
+          total: imp.total || 0,
+          tipo: imp.tipo || 'Impuesto IVA',
+          cuit: imp.cuitProveedor || ''
         }))
       },
       stats: {
         totalMovimientos,
         totalCompras,
         totalVentas,
+        totalImpuestos,
         conciliados,
         pendientes,
         montoTotal: stats.montoTotal || 0,
@@ -205,6 +219,7 @@ export async function POST(request: NextRequest) {
       movements: response.data.movements.length,
       compras: response.data.compras.length,
       ventas: response.data.ventas.length,
+      impuestos: response.data.impuestos.length,
       conciliados: response.data.conciliados,
       pendientes: response.data.pendientes
     })
@@ -319,6 +334,25 @@ async function procesarConciliacionConDebug(ventasFile: File, comprasFile: File,
       moneda: 'ARS', // Valor por defecto
       formaPago: 'Efectivo' // Valor por defecto
     }));
+
+    // SEPARAR IMPUESTOS DE COMPRAS
+    const impuestosNormalizados = comprasData
+      .filter(c => c.iva && c.iva > 0) // Solo compras con IVA
+      .map((c, index) => ({
+        id: `impuesto_${index}`,
+        fechaEmision: c.fecha,
+        proveedor: c.proveedor,
+        total: c.iva, // El IVA es el total del impuesto
+        cuitProveedor: c.cuitProveedor,
+        tipo: 'Impuesto IVA',
+        puntoVenta: c.puntoVenta,
+        numero: c.numero,
+        neto: 0, // Los impuestos no tienen neto
+        iva: 0, // Los impuestos no tienen IVA
+        medioPago: 'Efectivo',
+        moneda: 'ARS',
+        formaPago: 'Efectivo'
+      }));
     
     const extractoNormalizado = extractoData.map((e, index) => ({
       id: `banco_${index}`,
@@ -410,6 +444,7 @@ async function procesarConciliacionConDebug(ventasFile: File, comprasFile: File,
         resultados,
         ventasNormalizadas,
         comprasNormalizadas,
+        impuestosNormalizados,
         extractoNormalizado
       };
       
@@ -471,6 +506,7 @@ async function procesarConciliacionConDebug(ventasFile: File, comprasFile: File,
         resultados,
         ventasNormalizadas,
         comprasNormalizadas,
+        impuestosNormalizados,
         extractoNormalizado
       };
     }
