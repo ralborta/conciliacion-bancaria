@@ -186,32 +186,19 @@ async function procesarConciliacionConDebug(ventasFile: File, comprasFile: File,
     const engine = new ConciliationEngine();
     const options: ProcessOptions = { banco, periodo };
     
-    // Parsear archivos individualmente para debug
-    console.log("🔄 Parseando ventas...");
+    // Parsear archivos individualmente para debug (SIMPLIFICADO)
+    console.log("🔄 Parseando archivos...");
     const ventasData = await parseFileToArray(ventasFile);
-    console.log("✅ Ventas parseadas:", { 
-      esArray: Array.isArray(ventasData), 
-      length: ventasData?.length || 0,
-      muestra: ventasData?.slice?.(0, 2) || "No es array"
-    });
-    
-    console.log("🔄 Parseando compras...");
     const comprasData = await parseFileToArray(comprasFile);
-    console.log("✅ Compras parseadas:", { 
-      esArray: Array.isArray(comprasData), 
-      length: comprasData?.length || 0,
-      muestra: comprasData?.slice?.(0, 2) || "No es array"
-    });
-    
-    console.log("🔄 Parseando extracto...");
     const extractoData = await parseFileToArray(extractoFile);
-    console.log("✅ Extracto parseado:", { 
-      esArray: Array.isArray(extractoData), 
-      length: extractoData?.length || 0,
-      muestra: extractoData?.slice?.(0, 2) || "No es array"
+    
+    console.log("✅ Archivos parseados:", {
+      ventas: ventasData?.length || 0,
+      compras: comprasData?.length || 0,
+      extracto: extractoData?.length || 0
     });
     
-    // PASO 2: Normalización con logging
+    // PASO 2: Normalización (SIMPLIFICADO)
     console.log("PASO 2 - Normalizando...");
     
     let ventasNormalizadas: any[] = [];
@@ -220,23 +207,16 @@ async function procesarConciliacionConDebug(ventasFile: File, comprasFile: File,
     
     try {
       ventasNormalizadas = normalizarVentasConDebug(ventasData);
-      console.log(`✅ Ventas normalizadas: ${ventasNormalizadas.length}`);
-    } catch (error) {
-      console.error("❌ Error normalizando ventas:", error);
-    }
-    
-    try {
       comprasNormalizadas = normalizarComprasConDebug(comprasData);
-      console.log(`✅ Compras normalizadas: ${comprasNormalizadas.length}`);
-    } catch (error) {
-      console.error("❌ Error normalizando compras:", error);
-    }
-    
-    try {
       extractoNormalizado = normalizarExtractoConDebug(extractoData);
-      console.log(`✅ Extracto normalizado: ${extractoNormalizado.length}`);
+      
+      console.log("✅ Normalización completada:", {
+        ventas: ventasNormalizadas.length,
+        compras: comprasNormalizadas.length,
+        extracto: extractoNormalizado.length
+      });
     } catch (error) {
-      console.error("❌ Error normalizando extracto:", error);
+      console.error("❌ Error en normalización:", error);
     }
     
     // PASO 3: Matching con logging
