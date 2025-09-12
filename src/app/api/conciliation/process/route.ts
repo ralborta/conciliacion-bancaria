@@ -167,6 +167,22 @@ async function procesarConciliacionConDebug(ventasFile: File, comprasFile: File,
       extracto: { name: extractoFile.name, size: extractoFile.size, type: extractoFile.type }
     });
     
+    // Verificar que los archivos no estén vacíos
+    if (ventasFile.size === 0) {
+      console.error("❌ ARCHIVO VENTAS VACÍO");
+      throw new Error("El archivo de ventas está vacío");
+    }
+    if (comprasFile.size === 0) {
+      console.error("❌ ARCHIVO COMPRAS VACÍO");
+      throw new Error("El archivo de compras está vacío");
+    }
+    if (extractoFile.size === 0) {
+      console.error("❌ ARCHIVO EXTRACTO VACÍO");
+      throw new Error("El archivo de extracto está vacío");
+    }
+    
+    console.log("✅ Archivos no están vacíos, procediendo con parseo...");
+    
     const engine = new ConciliationEngine();
     const options: ProcessOptions = { banco, periodo };
     
