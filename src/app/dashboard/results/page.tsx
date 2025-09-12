@@ -255,6 +255,34 @@ function ResultsContent() {
           </div>
         </div>
       )}
+      
+      {data.impuestos && data.impuestos.length > 0 && (
+        <div className="bg-white rounded shadow p-4 mt-4">
+          <h3 className="text-lg font-bold mb-4">Impuestos ({data.impuestos.length})</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left p-2">Fecha</th>
+                  <th className="text-left p-2">Proveedor</th>
+                  <th className="text-right p-2">Monto IVA</th>
+                  <th className="text-center p-2">Tipo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.impuestos.slice(0, 10).map((impuesto: any, i: number) => (
+                  <tr key={i} className="border-b">
+                    <td className="p-2">{impuesto.fecha}</td>
+                    <td className="p-2">{impuesto.proveedor}</td>
+                    <td className="p-2 text-right">${impuesto.total?.toFixed(2) || '0.00'}</td>
+                    <td className="p-2 text-center">{impuesto.tipo}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
