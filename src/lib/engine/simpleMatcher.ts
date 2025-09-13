@@ -14,8 +14,8 @@ export class SimpleMatcher {
   
   // Separar impuestos del extracto bancario
   public separateImpuestos(extracto: any[]) {
-    const impuestos = [];
-    const movimientosLimpios = [];
+    const impuestos: any[] = [];
+    const movimientosLimpios: any[] = [];
     
     const esImpuesto = (concepto: string) => {
       const c = concepto.toLowerCase();
@@ -37,8 +37,8 @@ export class SimpleMatcher {
   
   // Merge simple como pandas
   public mergeSimple(arrayA: any[], arrayB: any[], keyA: string, keyB: string) {
-    const matches = [];
-    const noMatch = [];
+    const matches: any[] = [];
+    const noMatch: any[] = [];
     
     arrayA.forEach(itemA => {
       const keyNormA = this.normalizeText(itemA[keyA]);
