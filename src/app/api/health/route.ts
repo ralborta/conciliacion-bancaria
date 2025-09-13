@@ -7,3 +7,4 @@ export async function GET() {
     service: 'conciliacion-bancaria'
   })
 }
+

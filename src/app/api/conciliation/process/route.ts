@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ConciliationEngine } from '@/lib/engine/matcher'
+import { SimpleMatcher } from '@/lib/engine/simpleMatcher'
 import { memoryStorage } from '@/lib/storage/memory'
 import { ProcessOptions, ConciliationStats } from '@/lib/types/conciliacion'
 import { ArgentinaExcelParser } from '@/lib/parsers/excelParser'
@@ -277,7 +277,8 @@ async function procesarConciliacionConDebug(ventasFile: File, comprasFile: File,
     
     console.log("✅ Archivos no están vacíos, procediendo con parseo...");
     
-    const engine = new ConciliationEngine();
+    // NUEVO MOTOR SIMPLE
+    const matcher = new SimpleMatcher();
     const options: ProcessOptions = { banco, periodo };
     
     // Parsear archivos con el nuevo parser AFIP
@@ -425,8 +426,8 @@ async function procesarConciliacionConDebug(ventasFile: File, comprasFile: File,
       extracto: extractoNormalizado.length
     });
     
-    // PASO 3: Matching con logging
-    console.log("PASO 3 - Iniciando matching...");
+    // PASO 3: MATCHING SIMPLE COMO EL PYTHON
+    console.log("PASO 3 - Iniciando matching simple...");
     
     if (ventasNormalizadas.length === 0 && comprasNormalizadas.length === 0) {
       console.error("❌ NO HAY DATOS PARA CONCILIAR");
@@ -466,33 +467,97 @@ async function procesarConciliacionConDebug(ventasFile: File, comprasFile: File,
       }];
     }
     
-    // MOTOR AVANZADO DE CONCILIACIÓN ARGENTINA
-    console.log("🚀 Iniciando motor avanzado de conciliación...");
+    // MOTOR SIMPLE COMO EL PYTHON
+    console.log("🚀 Iniciando motor simple...");
     console.log("📊 Datos a procesar:", {
       ventas: ventasNormalizadas.length,
       compras: comprasNormalizadas.length,
-      extracto: extractoNormalizado.length,
-      muestraVentas: ventasNormalizadas.slice(0, 2),
-      muestraCompras: comprasNormalizadas.slice(0, 2),
-      muestraExtracto: extractoNormalizado.slice(0, 2)
+      extracto: extractoNormalizado.length
     });
     
     try {
-      // Usar el motor avanzado que ya implementamos
-      console.log("🔄 Llamando a engine.runMatching...");
-      const resultados = await engine.runMatching(
+      // Separar impuestos del extracto
+      const { impuestos, movimientosLimpios } = matcher.separateImpuestos(extractoNormalizado);
+      console.log("📊 Impuestos separados:", { impuestos: impuestos.length, movimientosLimpios: movimientosLimpios.length });
+      
+      // Hacer matching simple de ventas
+      const resultVentas = matcher.mergeSimple(
+        movimientosLimpios.filter(m => m.importe > 0), // Solo ingresos
         ventasNormalizadas,
-        comprasNormalizadas, 
-        extractoNormalizado
+        'concepto',
+        'cliente'
       );
       
-      console.log("✅ Motor avanzado completado:", {
-        totalResultados: resultados.length,
-        matchesExactos: resultados.filter(r => r.score >= 0.9).length,
-        matchesParciales: resultados.filter(r => r.score < 0.9 && r.score > 0).length,
-        sinMatch: resultados.filter(r => r.score === 0).length,
-        muestraResultados: resultados.slice(0, 3)
+      // Hacer matching simple de compras
+      const resultCompras = matcher.mergeSimple(
+        movimientosLimpios.filter(m => m.importe < 0), // Solo egresos
+        comprasNormalizadas,
+        'concepto',
+        'proveedor'
+      );
+      
+      console.log("✅ Matching simple completado:", {
+        ventasMatches: resultVentas.matches.length,
+        comprasMatches: resultCompras.matches.length,
+        ventasNoMatch: resultVentas.noMatch.length,
+        comprasNoMatch: resultCompras.noMatch.length
       });
+      
+      // Convertir a formato esperado por el sistema
+      const resultados = [];
+      
+      // Agregar matches de ventas
+      resultVentas.matches.forEach((match, i) => {
+        resultados.push({
+          id: `venta_match_${i}`,
+          extractoItem: match,
+          matchedWith: { cliente: match.cliente, total: match.total },
+          score: 0.9,
+          status: 'matched' as const,
+          tipo: 'venta' as const,
+          reason: 'Match simple por concepto'
+        });
+      });
+      
+      // Agregar matches de compras
+      resultCompras.matches.forEach((match, i) => {
+        resultados.push({
+          id: `compra_match_${i}`,
+          extractoItem: match,
+          matchedWith: { proveedor: match.proveedor, total: match.total },
+          score: 0.9,
+          status: 'matched' as const,
+          tipo: 'compra' as const,
+          reason: 'Match simple por concepto'
+        });
+      });
+      
+      // Agregar no matches como pending
+      resultVentas.noMatch.forEach((item, i) => {
+        resultados.push({
+          id: `venta_pending_${i}`,
+          extractoItem: item,
+          matchedWith: null,
+          score: 0,
+          status: 'pending' as const,
+          tipo: 'venta' as const,
+          reason: 'Sin conciliar'
+        });
+      });
+      
+      resultCompras.noMatch.forEach((item, i) => {
+        resultados.push({
+          id: `compra_pending_${i}`,
+          extractoItem: item,
+          matchedWith: null,
+          score: 0,
+          status: 'pending' as const,
+          tipo: 'compra' as const,
+          reason: 'Sin conciliar'
+        });
+      });
+      
+      console.log(`📊 RESULTADO SIMPLE: ${resultados.length} total, ${resultados.filter(r => r.status === 'matched').length} matches`);
       
       return {
         resultados,
@@ -503,66 +568,24 @@ async function procesarConciliacionConDebug(ventasFile: File, comprasFile: File,
       };
       
     } catch (error) {
-      console.error("❌ Error en motor avanzado:", error);
+      console.error("❌ Error en motor simple:", error);
       const errorObj = error as Error;
       
-      // Fallback a matching básico si falla el motor avanzado
-      console.log("🔄 Fallback a matching básico...");
-      const resultados = [];
-      let matchesEncontrados = 0;
-      
-      console.log("🔄 Procesando ventas...");
-      for (let i = 0; i < Math.min(ventasNormalizadas.length, 10); i++) {
-        const venta = ventasNormalizadas[i];
-        console.log(`  Venta ${i + 1}: $${venta.total} - ${venta.cliente || 'Sin cliente'}`);
-        
-        // Buscar ingreso bancario similar
-        const match = extractoNormalizado.find(mov => 
-          mov.importe > 0 && 
-          Math.abs(mov.importe - venta.total) <= (venta.total * 0.05) // 5% tolerancia
-        );
-        
-        if (match) {
-          console.log(`    ✅ MATCH encontrado: $${match.importe}`);
-          matchesEncontrados++;
-          resultados.push({
-            id: `venta_match_${i}`,
-            extractoItem: match,
-            matchedWith: venta,
-            score: 0.9,
-            status: 'matched' as const,
-            tipo: 'venta' as const,
-            reason: 'Match por importe (fallback)'
-          });
-        } else {
-          console.log(`    ❌ Sin match`);
-          resultados.push({
-            id: `venta_no_match_${i}`,
-            extractoItem: {
-              id: 'dummy',
-              banco: 'N/A',
-              cuenta: 'N/A',
-              fechaOperacion: new Date(),
-              concepto: 'Sin match',
-              importe: 0
-            },
-            matchedWith: venta,
-            score: 0,
-            status: 'pending' as const,
-            tipo: 'venta' as const,
-            reason: 'Sin conciliar (fallback)'
-          });
-        }
-      }
-      
-      console.log(`📊 RESULTADO FALLBACK: ${matchesEncontrados} matches de ${Math.min(ventasNormalizadas.length, 10)} procesadas`);
-      return {
-        resultados,
-        ventasNormalizadas,
-        comprasNormalizadas,
-        impuestosNormalizados,
-        extractoNormalizado
-      };
+      return [{
+        id: 'error_simple_matching',
+        extractoItem: {
+          id: 'dummy',
+          banco: 'N/A',
+          cuenta: 'N/A',
+          fechaOperacion: new Date(),
+          concepto: 'Error',
+          importe: 0
+        },
+        matchedWith: null,
+        score: 0,
+        status: 'error' as const,
+        reason: `Error en matching simple: ${errorObj.message}`
+      }];
     }
     
   } catch (error) {

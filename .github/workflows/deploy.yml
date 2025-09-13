@@ -75,3 +75,4 @@ jobs:
       run: railway up --token ${{ secrets.RAILWAY_TOKEN }}
       env:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
