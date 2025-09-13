@@ -1,5 +1,6 @@
 // ESTE ES EL MOTOR SIMPLE QUE FUNCIONA COMO EL PYTHON
 // Normaliza texto quitando acentos y hace merge simple por coincidencia
+// VERSION 2.0 - FIXED TYPESCRIPT ERRORS
 
 export class SimpleMatcher {
   // Normalización idéntica al Python
