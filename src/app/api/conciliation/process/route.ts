@@ -504,7 +504,7 @@ async function procesarConciliacionConDebug(ventasFile: File, comprasFile: File,
       });
       
       // Convertir a formato esperado por el sistema
-      const resultados = [];
+      const resultados: any[] = [];
       
       // Agregar matches de ventas
       resultVentas.matches.forEach((match, i) => {
