@@ -7,6 +7,7 @@ export interface VentaCanon {
   neto: number
   iva?: number
   total: number
+  cliente?: string
   cuitCliente?: string
   cbuCvuCliente?: string
   referenciaExterna?: string
@@ -21,6 +22,7 @@ export interface CompraCanon {
   neto: number
   iva?: number
   total: number
+  proveedor?: string
   cuitProveedor: string
   cbuCvuProveedor?: string
   ordenPago?: string
