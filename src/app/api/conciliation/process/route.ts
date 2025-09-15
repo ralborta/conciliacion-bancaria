@@ -139,13 +139,32 @@ export async function POST(request: NextRequest) {
     const conciliados = stats.conciliados || 0;
     const pendientes = stats.pendientes || 0;
     
-    // ✨ GENERAR ASIENTOS CONTABLES
-    console.log("🏦 Generando asientos contables...");
-    const { asientos, resumen } = AsientosGenerator.generateAsientosContables(
-      impuestosNormalizados,
-      banco,
-      periodo
-    );
+    // 🚨 GENERAR ASIENTOS CONTABLES - AGREGAR ESTAS LÍNEAS:
+    console.log('🔍 Generando asientos contables...');
+    console.log('🔍 Impuestos encontrados:', impuestosNormalizados?.length || 0);
+
+    let asientos = [];
+    let resumen = {
+      totalAsientos: 0,
+      totalDebe: 0,
+      totalHaber: 0,
+      diferencia: 0,
+      balanceado: true,
+      asientosPorTipo: {}
+    };
+
+    try {
+      if (impuestosNormalizados && impuestosNormalizados.length > 0) {
+        const resultado = AsientosGenerator.generateAsientosContables(impuestosNormalizados, banco, periodo);
+        asientos = resultado.asientos;
+        resumen = resultado.resumen;
+        console.log('✅ Asientos generados:', asientos.length);
+      } else {
+        console.log('⚠️ No hay impuestos para generar asientos');
+      }
+    } catch (error) {
+      console.error('❌ Error generando asientos:', error);
+    }
     
     console.log('📊 DATOS FINALES PARA ENVIAR:');
     console.log(`- Compras: ${totalCompras}`);
@@ -213,7 +232,12 @@ export async function POST(request: NextRequest) {
         
         // ✨ AGREGAR ASIENTOS CONTABLES
         asientosContables: asientos,
-        asientosResumen: resumen
+        asientosResumen: resumen,
+        // 🔍 PARA DEBUG:
+        debug: {
+          impuestosCount: impuestosNormalizados?.length || 0,
+          asientosCount: asientos.length
+        }
       },
       stats: {
         totalMovimientos,
