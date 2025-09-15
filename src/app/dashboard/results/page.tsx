@@ -268,8 +268,8 @@ function ResultsContent() {
               <thead>
                 <tr className="border-b">
                   <th className="text-left p-2">Fecha</th>
-                  <th className="text-left p-2">Proveedor</th>
-                  <th className="text-right p-2">Monto IVA</th>
+                  <th className="text-left p-2">Concepto</th>
+                  <th className="text-right p-2">Monto</th>
                   <th className="text-center p-2">Tipo</th>
                 </tr>
               </thead>
@@ -277,8 +277,8 @@ function ResultsContent() {
                 {data.impuestos.slice(0, 10).map((impuesto: any, i: number) => (
                   <tr key={i} className="border-b">
                     <td className="p-2">{impuesto.fecha}</td>
-                    <td className="p-2">{impuesto.proveedor}</td>
-                    <td className="p-2 text-right">${impuesto.total?.toFixed(2) || '0.00'}</td>
+                    <td className="p-2">{impuesto.concepto}</td>
+                    <td className="p-2 text-right">${impuesto.monto?.toFixed(2) || '0.00'}</td>
                     <td className="p-2 text-center">{impuesto.tipo}</td>
                   </tr>
                 ))}
