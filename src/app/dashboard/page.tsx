@@ -11,6 +11,7 @@ import { UploadedFile, ProcessingStep } from '@/lib/types/conciliacion'
 import { RotateCcw, Zap } from 'lucide-react'
 
 const BANCOS = [
+  'Banco Provincia',
   'Santander',
   'BBVA', 
   'Galicia',
@@ -37,7 +38,7 @@ export default function DashboardPage() {
     extracto: null
   })
   
-  const [banco, setBanco] = useState('Santander')
+  const [banco, setBanco] = useState('Banco Provincia')
   const [periodo, setPeriodo] = useState('Septiembre 2024')
   const [isProcessing, setIsProcessing] = useState(false)
   const [processingSteps, setProcessingSteps] = useState<ProcessingStep[]>([])
