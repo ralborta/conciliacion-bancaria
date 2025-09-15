@@ -2,6 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { DebugAsientos } from '@/components/conciliacion/DebugAsientos';
 
 function ResultsContent() {
   const [data, setData] = useState<any>(null);
@@ -168,6 +169,9 @@ function ResultsContent() {
   return (
     <div className="p-6">
       <h2 className="text-xl mb-4 text-green-600">✅ Resultados de Conciliación</h2>
+      
+      {/* 🚨 AGREGAR COMPONENTE DE DEBUG TEMPORALMENTE */}
+      <DebugAsientos results={data} />
       
       <div className="grid grid-cols-4 gap-4 mb-6">
         <div className="bg-white p-4 rounded shadow">
