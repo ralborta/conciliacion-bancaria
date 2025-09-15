@@ -155,6 +155,16 @@ export class ConciliationEngine {
 
       const concepto = String(item[bancoConfig.campos.concepto] || item.concepto || '')
       
+      // 🔍 DEBUG: Ver qué está pasando con el concepto
+      if (index < 3) {
+        console.log(`🔍 NORMALIZANDO MOVIMIENTO ${index + 1}:`);
+        console.log(`  - bancoConfig.campos.concepto: "${bancoConfig.campos.concepto}"`);
+        console.log(`  - item[bancoConfig.campos.concepto]: "${item[bancoConfig.campos.concepto]}"`);
+        console.log(`  - item.concepto: "${item.concepto}"`);
+        console.log(`  - concepto final: "${concepto}"`);
+        console.log(`  - item completo:`, JSON.stringify(item, null, 2));
+      }
+      
       return {
         id: `extracto_${index}`,
         banco,
