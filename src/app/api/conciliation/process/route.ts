@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
     console.log('🔍 Generando asientos contables...');
     console.log('🔍 Impuestos encontrados:', impuestosNormalizados?.length || 0);
 
-    let asientos = [];
+    let asientos: any[] = [];
     let resumen = {
       totalAsientos: 0,
       totalDebe: 0,
