@@ -163,13 +163,13 @@ export async function POST(request: NextRequest) {
       
       // Mostrar todos los conceptos únicos
       const conceptos = impuestosNormalizados.map(i => {
-        return i.concepto || i.descripcion || i.tipo || i.proveedor || 'Sin concepto';
+        return i.proveedor || i.tipo || 'Sin concepto';
       });
       const conceptosUnicos = [...new Set(conceptos)];
       console.log('🔍 Conceptos únicos encontrados:', conceptosUnicos);
       
       // Mostrar rangos de importes
-      const importes = impuestosNormalizados.map(i => i.importe || i.monto || i.total || 0);
+      const importes = impuestosNormalizados.map(i => i.total || 0);
       const importeMin = Math.min(...importes);
       const importeMax = Math.max(...importes);
       console.log('🔍 Rango de importes:', { min: importeMin, max: importeMax });

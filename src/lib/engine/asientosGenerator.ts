@@ -16,13 +16,13 @@ export class AsientosGenerator {
     const conceptoBase = `${banco} ${periodo}`;
     
     // DEBUGGING: Ver todos los conceptos únicos
-    const conceptosUnicos = [...new Set(impuestos.map(i => i.concepto || i.descripcion || i.tipo || 'Sin concepto'))];
+    const conceptosUnicos = [...new Set(impuestos.map(i => i.proveedor || i.tipo || 'Sin concepto'))];
     console.log('🔍 Conceptos únicos encontrados:', conceptosUnicos);
     
     // 1. AGRUPAR TODOS LOS IMPUESTOS BANCARIOS COMO UNO SOLO POR AHORA
     // (Después refinamos la clasificación)
     
-    const todosLosImpuestos = impuestos.filter(i => i.importe && Math.abs(i.importe) > 0);
+    const todosLosImpuestos = impuestos.filter(i => i.total && Math.abs(i.total) > 0);
     console.log('🔍 Impuestos con importe válido:', todosLosImpuestos.length);
     
     if (todosLosImpuestos.length === 0) {
@@ -37,7 +37,7 @@ export class AsientosGenerator {
     // GENERAR ASIENTOS POR CADA CLASIFICACIÓN
     Object.entries(clasificados).forEach(([tipo, impuestosDelTipo]) => {
       if (impuestosDelTipo.length > 0) {
-        const totalImporte = impuestosDelTipo.reduce((sum, imp) => sum + Math.abs(imp.importe || 0), 0);
+        const totalImporte = impuestosDelTipo.reduce((sum, imp) => sum + Math.abs(imp.total || 0), 0);
         
         if (totalImporte > 0) {
           console.log(`✅ Generando asiento para ${tipo}: $${totalImporte}`);
@@ -94,8 +94,8 @@ export class AsientosGenerator {
     };
     
     impuestos.forEach(impuesto => {
-      const concepto = (impuesto.concepto || impuesto.descripcion || impuesto.tipo || '').toLowerCase();
-      const importe = impuesto.importe || 0;
+      const concepto = (impuesto.proveedor || impuesto.tipo || '').toLowerCase();
+      const importe = impuesto.total || 0;
       
       console.log(`🔍 Clasificando: "${concepto}" - Importe: ${importe}`);
       
