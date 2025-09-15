@@ -89,6 +89,35 @@ export interface ConciliationStats {
   porcentajeConciliacion: number
 }
 
+// ✨ NUEVOS TIPOS PARA ASIENTOS CONTABLES
+export interface AsientoContable {
+  id: string;
+  fecha: string;
+  concepto: string;
+  circuitoContable: string;
+  cuenta: string;
+  debe: number;
+  haber: number;
+  organizacion?: string;
+  centroCosto?: string;
+  descripcion?: string;
+}
+
+export interface AsientosResumen {
+  totalAsientos: number;
+  totalDebe: number;
+  totalHaber: number;
+  diferencia: number;
+  balanceado: boolean;
+  asientosPorTipo: {
+    [key: string]: {
+      cantidad: number;
+      totalDebe: number;
+      totalHaber: number;
+    };
+  };
+}
+
 export interface BancoConfig {
   id: string
   nombre: string

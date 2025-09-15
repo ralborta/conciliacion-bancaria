@@ -3,6 +3,7 @@ import { ConciliationEngine } from '@/lib/engine/matcher'
 import { memoryStorage } from '@/lib/storage/memory'
 import { ProcessOptions, ConciliationStats } from '@/lib/types/conciliacion'
 import { ArgentinaExcelParser } from '@/lib/parsers/excelParser'
+import { AsientosGenerator } from '@/lib/engine/asientosGenerator'
 
 // ===== DEBUG: POR QUÉ NO SALEN RESULTADOS =====
 
@@ -138,6 +139,14 @@ export async function POST(request: NextRequest) {
     const conciliados = stats.conciliados || 0;
     const pendientes = stats.pendientes || 0;
     
+    // ✨ GENERAR ASIENTOS CONTABLES
+    console.log("🏦 Generando asientos contables...");
+    const { asientos, resumen } = AsientosGenerator.generateAsientosContables(
+      impuestosNormalizados,
+      banco,
+      periodo
+    );
+    
     console.log('📊 DATOS FINALES PARA ENVIAR:');
     console.log(`- Compras: ${totalCompras}`);
     console.log(`- Ventas: ${totalVentas}`);
@@ -145,6 +154,7 @@ export async function POST(request: NextRequest) {
     console.log(`- Extracto: ${totalMovimientos}`);
     console.log(`- Conciliados: ${conciliados}`);
     console.log(`- Pendientes: ${pendientes}`);
+    console.log(`- Asientos: ${asientos.length}`);
     
     const response = {
       success: true,
@@ -199,7 +209,11 @@ export async function POST(request: NextRequest) {
           total: imp.total || 0,
           tipo: imp.tipo || 'Impuesto IVA',
           cuit: imp.cuitProveedor || ''
-        }))
+        })),
+        
+        // ✨ AGREGAR ASIENTOS CONTABLES
+        asientosContables: asientos,
+        asientosResumen: resumen
       },
       stats: {
         totalMovimientos,
