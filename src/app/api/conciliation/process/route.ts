@@ -268,7 +268,7 @@ export async function POST(request: NextRequest) {
         impuestos: impuestosNormalizados.slice(0, 20).map((imp, i) => ({
           id: `impuesto_${i}`,
           fecha: imp.fechaEmision?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0],
-          concepto: imp.concepto || imp.descripcion || imp.proveedor || `Impuesto ${i + 1}`, // ← CONCEPTO ORIGINAL DEL EXTRACTO
+          concepto: (imp as any).concepto || (imp as any).descripcion || (imp as any).proveedor || `Impuesto ${i + 1}`, // ← CONCEPTO ORIGINAL DEL EXTRACTO
           monto: imp.total || 0, // ← SOLO "MONTO"
           tipo: 'Impuesto', // ← SOLO "IMPUESTO"
           cuit: imp.cuitProveedor || ''
