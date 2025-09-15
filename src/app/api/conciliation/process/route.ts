@@ -185,18 +185,30 @@ export async function POST(request: NextRequest) {
       asientosPorTipo: {}
     };
 
+    console.log('🚨🚨🚨 DEBUGGING ASIENTOS - INICIO 🚨🚨🚨');
+    console.log('impuestosNormalizados:', impuestosNormalizados?.length || 0);
+    console.log('banco:', banco);
+    console.log('periodo:', periodo);
+    
     try {
       if (impuestosNormalizados && impuestosNormalizados.length > 0) {
+        console.log('🎯 LLAMANDO AL GENERADOR DE ASIENTOS...');
         const resultado = AsientosGenerator.generateAsientosContables(impuestosNormalizados, banco, periodo);
         asientos = resultado.asientos;
         resumen = resultado.resumen;
         console.log('✅ Asientos generados:', asientos.length);
+        console.log('✅ Primeros 3 asientos:', asientos.slice(0, 3));
       } else {
         console.log('⚠️ No hay impuestos para generar asientos');
+        console.log('⚠️ impuestosNormalizados es null?', impuestosNormalizados === null);
+        console.log('⚠️ impuestosNormalizados es undefined?', impuestosNormalizados === undefined);
+        console.log('⚠️ impuestosNormalizados.length:', impuestosNormalizados?.length);
       }
     } catch (error) {
       console.error('❌ Error generando asientos:', error);
     }
+    
+    console.log('🚨🚨🚨 DEBUGGING ASIENTOS - FIN 🚨🚨🚨');
     
     console.log('📊 DATOS FINALES PARA ENVIAR:');
     console.log(`- Compras: ${totalCompras}`);
