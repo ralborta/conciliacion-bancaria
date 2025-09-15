@@ -18,6 +18,15 @@ export class ArgentinaMatchingEngine {
 
     // LÓGICA SIMPLE COMO EL PYTHON
     // 1. Separar impuestos del extracto
+    
+    // 🔍 DEBUG: Ver qué está llegando al extracto ANTES de separar
+    console.log('🔍 EXTRACTO ORIGINAL - Primeros 3 movimientos:');
+    extracto.slice(0, 3).forEach((mov, index) => {
+      console.log(`Extracto ${index + 1}:`, JSON.stringify(mov, null, 2));
+    });
+
+    console.log('🔍 Propiedades disponibles en extracto:', Object.keys(extracto[0] || {}));
+    
     const { impuestos, movimientosLimpios } = this.separateImpuestos(extracto);
     console.log("📊 Impuestos separados:", { impuestos: impuestos.length, movimientosLimpios: movimientosLimpios.length });
 
