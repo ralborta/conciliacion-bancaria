@@ -130,97 +130,48 @@ export class ArgentinaMatchingEngine {
     return conceptoNorm.includes(nombreNorm) || nombreNorm.includes(conceptoNorm);
   }
 
-  // SEPARAR IMPUESTOS COMO EL PYTHON - VERSIÓN MEJORADA
+  // SEPARAR IMPUESTOS COMO EL PYTHON - VERSIÓN SIMPLE
   private separateImpuestos(extracto: ExtractoCanon[]): { impuestos: any[], movimientosLimpios: ExtractoCanon[] } {
+    console.log('🚨 FUNCIÓN SEPARATEIMPUESTOS EJECUTÁNDOSE - Total movimientos:', extracto.length);
+    
     const impuestos: any[] = [];
     const movimientosLimpios: ExtractoCanon[] = [];
 
     const esImpuesto = (concepto: string) => {
       const c = concepto.toLowerCase();
-      return c.includes('impuesto') || 
-             c.includes('retencion') || 
-             c.includes('iibb') || 
-             c.includes('ganancias') || 
-             c.includes('comision') || 
-             c.includes('ley 25413') ||
-             c.includes('bip db') ||
-             c.includes('daynet') ||
-             c.includes('cr.tran') ||
-             c.includes('percepcion') ||
+      return c.includes('impuesto') || c.includes('retencion') || 
+             c.includes('iibb') || c.includes('ganancias') || 
+             c.includes('comision') || c.includes('ley 25413') ||
+             c.includes('bip db') || c.includes('daynet') ||
              c.includes('transferencia');
     };
 
-    console.log('🔍 PROCESANDO EXTRACTO - Total movimientos:', extracto.length);
-
     extracto.forEach((mov, index) => {
-      // ✅ PRESERVAR EL CONCEPTO ORIGINAL
+      // Obtener el concepto original del extracto
       const conceptoOriginal = mov.concepto || '';
       
+      console.log(`🔍 Movimiento ${index}: "${conceptoOriginal}"`);
+      
       if (esImpuesto(conceptoOriginal)) {
-        // 🎯 CREAR OBJETO DE IMPUESTO PRESERVANDO TODA LA INFO
-        const impuestoDetallado = {
-          id: `imp_${index}`,
-          fecha: mov.fechaOperacion,
-          concepto: conceptoOriginal,           // ← CONCEPTO ORIGINAL COMPLETO
-          descripcion: conceptoOriginal,        // ← DUPLICAR PARA ASEGURAR
-          importe: mov.importe || 0,
-          saldo: mov.saldo || 0,
-          fechaValor: mov.fechaValor,
-          // Clasificación automática mejorada
-          tipoImpuesto: this.clasificarTipoImpuesto(conceptoOriginal),
-          proveedor: 'Banco',
-          movimientoOriginal: mov           // ← GUARDAR MOVIMIENTO COMPLETO
-        };
-
-        console.log(`🎯 IMPUESTO DETECTADO:`, {
+        console.log(`✅ ES IMPUESTO: "${conceptoOriginal}"`);
+        
+        // Crear objeto preservando el concepto original
+        const impuestoConDetalles = {
+          ...mov,
           concepto: conceptoOriginal,
-          tipo: impuestoDetallado.tipoImpuesto,
-          importe: impuestoDetallado.importe
-        });
-
-        impuestos.push(impuestoDetallado);
+          descripcion: conceptoOriginal,
+          tipoImpuesto: conceptoOriginal // Usar el concepto original como tipo por ahora
+        };
+        
+        impuestos.push(impuestoConDetalles);
       } else {
         movimientosLimpios.push(mov);
       }
     });
 
-    console.log('📊 RESULTADO SEPARACIÓN:', {
-      impuestos: impuestos.length,
-      movimientosLimpios: movimientosLimpios.length
-    });
-
+    console.log('📊 RESULTADO:', { impuestos: impuestos.length, movimientosLimpios: movimientosLimpios.length });
+    
     return { impuestos, movimientosLimpios };
   }
 
-  // ✨ NUEVA FUNCIÓN: Clasificar tipo de impuesto específico
-  private clasificarTipoImpuesto(concepto: string): string {
-    const c = concepto.toLowerCase();
-    
-    // Clasificación específica basada en patrones reales
-    if (c.includes('debito') && c.includes('ley 25413')) {
-      return 'Débito Ley 25413';
-    } else if (c.includes('credito') && c.includes('ley 25413')) {
-      return 'Crédito Ley 25413';
-    } else if (c.includes('bip db tr')) {
-      return 'Transferencia Bancaria';
-    } else if (c.includes('comision transferencia') || c.includes('comision daynet')) {
-      return 'Comisión Bancaria';
-    } else if (c.includes('cr.tran')) {
-      return 'Crédito Transferencia';
-    } else if (c.includes('percepcion') && c.includes('iva')) {
-      return 'Percepción IVA';
-    } else if (c.includes('percepcion') && c.includes('iibb')) {
-      return 'Percepción IIBB';
-    } else if (c.includes('retencion') && c.includes('iva')) {
-      return 'Retención IVA';
-    } else if (c.includes('retencion') && c.includes('ganancias')) {
-      return 'Retención Ganancias';
-    } else if (c.includes('impuesto')) {
-      return 'Impuesto General';
-    } else if (c.includes('comision')) {
-      return 'Comisión Bancaria';
-    } else {
-      return 'Otro Impuesto';
-    }
-  }
 }
