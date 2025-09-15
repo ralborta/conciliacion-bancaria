@@ -8,59 +8,126 @@ export class AsientosGenerator {
     periodo: string
   ): { asientos: AsientoContable[], resumen: AsientosResumen } {
     
-    console.log('🔍 AsientosGenerator - Iniciando con', impuestos.length, 'impuestos');
-    console.log('🔍 Primer impuesto ejemplo:', impuestos[0]);
+    console.log('🔍 AsientosGenerator - Recibiendo', impuestos.length, 'impuestos estructurados');
     
     const asientos: AsientoContable[] = [];
     const fecha = this.formatPeriodoToDate(periodo);
     const conceptoBase = `${banco} ${periodo}`;
     
-    // DEBUGGING: Ver todos los conceptos únicos
-    const conceptosUnicos = [...new Set(impuestos.map(i => i.proveedor || i.tipo || 'Sin concepto'))];
-    console.log('🔍 Conceptos únicos encontrados:', conceptosUnicos);
-    
-    // 1. AGRUPAR TODOS LOS IMPUESTOS BANCARIOS COMO UNO SOLO POR AHORA
-    // (Después refinamos la clasificación)
-    
-    const todosLosImpuestos = impuestos.filter(i => i.total && Math.abs(i.total) > 0);
-    console.log('🔍 Impuestos con importe válido:', todosLosImpuestos.length);
-    
-    if (todosLosImpuestos.length === 0) {
-      console.log('⚠️ No hay impuestos con importes válidos');
+    if (impuestos.length === 0) {
+      console.log('⚠️ No hay impuestos para procesar');
       return { asientos: [], resumen: this.generateResumen([]) };
     }
-    
-    // CLASIFICAR POR TIPO DE IMPUESTO BASADO EN LOS DATOS REALES
-    const clasificados = this.clasificarImpuestos(todosLosImpuestos);
-    console.log('🔍 Impuestos clasificados:', clasificados);
-    
-    // GENERAR ASIENTOS POR CADA CLASIFICACIÓN
-    Object.entries(clasificados).forEach(([tipo, impuestosDelTipo]) => {
+
+    // 🎯 MOSTRAR PRIMER IMPUESTO PARA VERIFICAR ESTRUCTURA
+    console.log('🔍 Primer impuesto recibido:', JSON.stringify(impuestos[0], null, 2));
+
+    // 🏷️ AGRUPAR POR TIPO DE IMPUESTO (usando la nueva clasificación)
+    const agrupados = this.agruparPorTipo(impuestos);
+    console.log('📊 Impuestos agrupados:', Object.keys(agrupados));
+
+    // 🧾 GENERAR ASIENTOS POR CADA GRUPO
+    Object.entries(agrupados).forEach(([tipo, impuestosDelTipo]) => {
       if (impuestosDelTipo.length > 0) {
-        const totalImporte = impuestosDelTipo.reduce((sum, imp) => sum + Math.abs(imp.total || 0), 0);
-        
-        if (totalImporte > 0) {
-          console.log(`✅ Generando asiento para ${tipo}: $${totalImporte}`);
-          
-          asientos.push({
-            id: `${tipo.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}`,
-            fecha,
-            concepto: conceptoBase,
-            circuitoContable: 'default',
-            cuenta: this.getCuentaContable(tipo),
-            debe: totalImporte,
-            haber: 0,
-            descripcion: `${tipo} - ${impuestosDelTipo.length} movimientos`
-          });
-        }
+        this.generarAsientoPorTipo(tipo, impuestosDelTipo, fecha, conceptoBase, asientos);
       }
     });
+
+    // 🏦 CONTRAPARTIDA BANCARIA
+    this.agregarContrapartidaBancaria(asientos, fecha, conceptoBase, banco);
+
+    console.log('✅ Total asientos generados:', asientos.length);
+    const resumen = this.generateResumen(asientos);
     
-    // CONTRAPARTIDA BANCARIA
+    return { asientos, resumen };
+  }
+
+  private static agruparPorTipo(impuestos: any[]): { [key: string]: any[] } {
+    const grupos: { [key: string]: any[] } = {};
+
+    impuestos.forEach(impuesto => {
+      const tipo = impuesto.tipoImpuesto || 'Otros Impuestos';
+      
+      if (!grupos[tipo]) {
+        grupos[tipo] = [];
+      }
+      grupos[tipo].push(impuesto);
+    });
+
+    return grupos;
+  }
+
+  private static generarAsientoPorTipo(
+    tipo: string, 
+    impuestos: any[], 
+    fecha: string, 
+    conceptoBase: string, 
+    asientos: AsientoContable[]
+  ) {
+    const totalImporte = impuestos.reduce((sum, imp) => sum + Math.abs(imp.importe || 0), 0);
+    
+    if (totalImporte <= 0) return;
+
+    const cuentaContable = this.mapearCuentaContable(tipo);
+    const esCredito = this.esCredito(tipo, impuestos);
+
+    console.log(`✅ Generando asiento: ${tipo} - $${totalImporte} - Cuenta: ${cuentaContable}`);
+
+    asientos.push({
+      id: `${tipo.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}_${Math.random()}`,
+      fecha,
+      concepto: conceptoBase,
+      circuitoContable: 'default',
+      cuenta: cuentaContable,
+      debe: esCredito ? totalImporte : 0,
+      haber: esCredito ? 0 : totalImporte,
+      descripcion: `${tipo} - ${impuestos.length} movimientos`
+    });
+  }
+
+  private static mapearCuentaContable(tipo: string): string {
+    const mapeo: { [key: string]: string } = {
+      'Débito Ley 25413': 'Débito Impuesto Ley 25413',
+      'Crédito Ley 25413': 'Crédito Impuesto Ley 25413',
+      'Percepción IVA': 'Percepciones IVA',
+      'Percepción IIBB': 'IIBB Percepciones',
+      'Retención IVA': 'Retenciones IVA Sufridas',
+      'Retención Ganancias': 'Retenciones Ganancias Sufridas',
+      'Comisión Bancaria': 'Intereses y Gastos Bancarios',
+      'Transferencia Bancaria': 'Intereses y Gastos Bancarios',
+      'Crédito Transferencia': 'Intereses y Gastos Bancarios',
+      'Impuesto General': 'Impuestos, Tasas y Contribuciones',
+      'Otro Impuesto': 'Impuestos, Tasas y Contribuciones'
+    };
+
+    return mapeo[tipo] || 'Impuestos, Tasas y Contribuciones';
+  }
+
+  private static esCredito(tipo: string, impuestos: any[]): boolean {
+    // Los créditos van al DEBE (son a favor de la empresa)
+    // Los débitos van al HABER (son a pagar)
+    
+    if (tipo === 'Crédito Ley 25413') return true;
+    if (tipo === 'Percepción IVA') return true;
+    if (tipo === 'Percepción IIBB') return true;
+    if (tipo === 'Retención IVA') return true;
+    if (tipo === 'Retención Ganancias') return true;
+    
+    // Para otros casos, analizar el importe
+    const primerImporte = impuestos[0]?.importe || 0;
+    return primerImporte > 0;
+  }
+
+  private static agregarContrapartidaBancaria(
+    asientos: AsientoContable[], 
+    fecha: string, 
+    conceptoBase: string, 
+    banco: string
+  ) {
     const totalDebe = asientos.reduce((sum, a) => sum + a.debe, 0);
     const totalHaber = asientos.reduce((sum, a) => sum + a.haber, 0);
     const diferencia = totalDebe - totalHaber;
-    
+
     if (Math.abs(diferencia) > 0.01) {
       asientos.push({
         id: `banco_contrapartida_${Date.now()}`,
@@ -73,74 +140,6 @@ export class AsientosGenerator {
         descripcion: `Contrapartida bancaria - movimientos de impuestos`
       });
     }
-    
-    console.log('✅ Asientos generados:', asientos.length);
-    const resumen = this.generateResumen(asientos);
-    
-    return { asientos, resumen };
-  }
-  
-  private static clasificarImpuestos(impuestos: any[]): { [key: string]: any[] } {
-    const clasificados: { [key: string]: any[] } = {
-      'Impuesto Ley 25413 - Créditos': [],
-      'Impuesto Ley 25413 - Débitos': [],
-      'Percepciones IVA': [],
-      'Percepciones IIBB': [],
-      'SIRCREB': [],
-      'Retenciones Ganancias': [],
-      'Retenciones IVA': [],
-      'Comisiones y Gastos Bancarios': [],
-      'Otros Impuestos': []
-    };
-    
-    impuestos.forEach(impuesto => {
-      const concepto = (impuesto.proveedor || impuesto.tipo || '').toLowerCase();
-      const importe = impuesto.total || 0;
-      
-      console.log(`🔍 Clasificando: "${concepto}" - Importe: ${importe}`);
-      
-      // CLASIFICACIÓN MEJORADA BASADA EN PATRONES COMUNES
-      if (concepto.includes('25413') || concepto.includes('credito') || concepto.includes('débito')) {
-        if (importe > 0) {
-          clasificados['Impuesto Ley 25413 - Créditos'].push(impuesto);
-        } else {
-          clasificados['Impuesto Ley 25413 - Débitos'].push(impuesto);
-        }
-      } else if (concepto.includes('percep') && concepto.includes('iva')) {
-        clasificados['Percepciones IVA'].push(impuesto);
-      } else if (concepto.includes('percep') && (concepto.includes('iibb') || concepto.includes('ingresos brutos'))) {
-        clasificados['Percepciones IIBB'].push(impuesto);
-      } else if (concepto.includes('sircreb')) {
-        clasificados['SIRCREB'].push(impuesto);
-      } else if (concepto.includes('reten') && concepto.includes('ganancia')) {
-        clasificados['Retenciones Ganancias'].push(impuesto);
-      } else if (concepto.includes('reten') && concepto.includes('iva')) {
-        clasificados['Retenciones IVA'].push(impuesto);
-      } else if (concepto.includes('comision') || concepto.includes('gasto') || concepto.includes('interes') || concepto.includes('bancario')) {
-        clasificados['Comisiones y Gastos Bancarios'].push(impuesto);
-      } else {
-        // Si no coincide con ningún patrón específico, va a "Otros"
-        clasificados['Otros Impuestos'].push(impuesto);
-      }
-    });
-    
-    return clasificados;
-  }
-  
-  private static getCuentaContable(tipoImpuesto: string): string {
-    const cuentas: { [key: string]: string } = {
-      'Impuesto Ley 25413 - Créditos': 'Crédito Impuesto Ley 25413',
-      'Impuesto Ley 25413 - Débitos': 'Débito Impuesto Ley 25413',
-      'Percepciones IVA': 'Percepciones IVA',
-      'Percepciones IIBB': 'IIBB Percepciones',
-      'SIRCREB': 'SIRCREB',
-      'Retenciones Ganancias': 'Retenciones Ganancias Sufridas',
-      'Retenciones IVA': 'Retenciones IVA Sufridas',
-      'Comisiones y Gastos Bancarios': 'Intereses y Gastos Bancarios',
-      'Otros Impuestos': 'Impuestos, Tasas y Contribuciones'
-    };
-    
-    return cuentas[tipoImpuesto] || 'Otros Impuestos';
   }
 
   private static generateResumen(asientos: AsientoContable[]): AsientosResumen {
