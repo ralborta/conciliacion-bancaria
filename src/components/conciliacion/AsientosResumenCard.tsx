@@ -77,3 +77,5 @@ export function AsientosResumenCard({ data }: AsientosResumenCardProps) {
     </Card>
   );
 }
+
+

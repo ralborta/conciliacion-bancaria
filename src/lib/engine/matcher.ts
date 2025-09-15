@@ -3,6 +3,31 @@ import { ArgentinaMatchingEngine } from './argentinaMatcher'
 import { excelDateToJSDate, extractCUITFromConcept, extractSupplierName } from './bankFormats'
 
 export class ConciliationEngine {
+  // AGREGAR ESTA FUNCIÓN AL INICIO DE matcher.ts
+  private parseDate(dateValue: any): Date {
+    try {
+      if (!dateValue) return new Date();
+      if (dateValue instanceof Date) return dateValue;
+      
+      // Si es string DD/MM/YYYY (formato argentino)
+      if (typeof dateValue === 'string' && dateValue.includes('/')) {
+        const parts = dateValue.split('/');
+        if (parts.length === 3) {
+          const day = parseInt(parts[0], 10);
+          const month = parseInt(parts[1], 10) - 1;
+          const year = parseInt(parts[2], 10);
+          if (year > 1900 && year < 2100 && month >= 0 && month < 12 && day > 0 && day <= 31) {
+            return new Date(year, month, day);
+          }
+        }
+      }
+      
+      // Fallback al comportamiento original
+      return new Date(String(dateValue));
+    } catch {
+      return new Date(); // Fecha actual como fallback seguro
+    }
+  }
   private rules: MatchingRules
 
   constructor(rules?: Partial<MatchingRules>) {
@@ -112,8 +137,8 @@ export class ConciliationEngine {
   private normalizeVentas(data: Record<string, unknown>[]): VentaCanon[] {
     return data.map((item, index) => ({
       id: `venta_${index}`,
-      fechaEmision: new Date(String(item.fecha_emision || item.fecha)),
-      fechaCobroEstimada: item.fecha_cobro ? new Date(String(item.fecha_cobro)) : undefined,
+      fechaEmision: this.parseDate(item.fecha_emision || item.fecha),
+      fechaCobroEstimada: item.fecha_cobro ? this.parseDate(item.fecha_cobro) : undefined,
       medioCobro: String(item.medio_cobro || item.medio || 'Transferencia'),
       moneda: String(item.moneda || 'ARS'),
       neto: parseFloat(String(item.neto || item.subtotal || 0)),
@@ -128,8 +153,8 @@ export class ConciliationEngine {
   private normalizeCompras(data: Record<string, unknown>[]): CompraCanon[] {
     return data.map((item, index) => ({
       id: `compra_${index}`,
-      fechaEmision: new Date(String(item.fecha_emision || item.fecha)),
-      fechaPagoEstimada: item.fecha_pago ? new Date(String(item.fecha_pago)) : undefined,
+      fechaEmision: this.parseDate(item.fecha_emision || item.fecha),
+      fechaPagoEstimada: item.fecha_pago ? this.parseDate(item.fecha_pago) : undefined,
       formaPago: String(item.forma_pago || item.medio || 'Transferencia'),
       moneda: String(item.moneda || 'ARS'),
       neto: parseFloat(String(item.neto || item.subtotal || 0)),
@@ -150,7 +175,7 @@ export class ConciliationEngine {
       if (banco === 'Banco Provincia' && typeof item[bancoConfig.campos.fecha] === 'number') {
         fechaOperacion = excelDateToJSDate(Number(item[bancoConfig.campos.fecha]))
       } else {
-        fechaOperacion = new Date(String(item[bancoConfig.campos.fecha] || item.fecha))
+        fechaOperacion = this.parseDate(item[bancoConfig.campos.fecha] || item.fecha)
       }
 
       const concepto = String(item[bancoConfig.campos.concepto] || item.concepto || '')
@@ -170,7 +195,7 @@ export class ConciliationEngine {
         banco,
         cuenta: String(item.cuenta || item.numero_cuenta || ''),
         fechaOperacion,
-        fechaValor: item.fecha_valor ? new Date(String(item.fecha_valor)) : undefined,
+        fechaValor: item.fecha_valor ? this.parseDate(item.fecha_valor) : undefined,
         concepto,
         importe: parseFloat(String(item[bancoConfig.campos.importe] || item.importe || 0)),
         saldo: item.saldo ? parseFloat(String(item.saldo)) : undefined,

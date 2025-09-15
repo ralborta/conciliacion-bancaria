@@ -73,3 +73,5 @@ export function useAsientos(asientos: AsientoContable[]) {
     setFilterBy
   };
 }
+
+

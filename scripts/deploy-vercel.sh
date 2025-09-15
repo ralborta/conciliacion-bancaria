@@ -39,3 +39,5 @@ echo "✅ Despliegue completado!"
 echo "🌐 Aplicación disponible en: https://tu-app.vercel.app"
 
 
+
+
