@@ -443,8 +443,13 @@ async function procesarConciliacionConDebug(ventasFile: File, comprasFile: File,
         const esImpuesto = concepto.includes('impuesto') || 
                           concepto.includes('debito') || 
                           concepto.includes('ley 25413') ||
-                          concepto.includes('retencion');
-        return esImpuesto; // Solo incluir si ES impuesto
+                          concepto.includes('retencion') ||
+                          concepto.includes('comision') ||
+                          concepto.includes('bip') ||
+                          concepto.includes('transferencia') ||
+                          concepto.includes('giro') ||
+                          concepto.includes('daynet');
+        return esImpuesto; // Solo incluir si ES impuesto/comisión/transferencia
       })
       .map((e, index) => ({
         id: `impuesto_extracto_${index}`,
@@ -485,8 +490,13 @@ async function procesarConciliacionConDebug(ventasFile: File, comprasFile: File,
         const esImpuesto = concepto.includes('impuesto') || 
                           concepto.includes('debito') || 
                           concepto.includes('ley 25413') ||
-                          concepto.includes('retencion');
-        return !esImpuesto; // Solo incluir si NO es impuesto
+                          concepto.includes('retencion') ||
+                          concepto.includes('comision') ||
+                          concepto.includes('bip') ||
+                          concepto.includes('transferencia') ||
+                          concepto.includes('giro') ||
+                          concepto.includes('daynet');
+        return !esImpuesto; // Solo incluir si NO es impuesto/comisión/transferencia
       })
       .map((e, index) => ({
         id: `banco_${index}`,
@@ -506,6 +516,12 @@ async function procesarConciliacionConDebug(ventasFile: File, comprasFile: File,
       impuestosCompras: impuestosCompras.length,
       impuestosExtracto: impuestosExtracto.length,
       extracto: extractoNormalizado.length
+    });
+
+    // 🔍 DEBUG: Mostrar conceptos de impuestos del extracto
+    console.log("🔍 CONCEPTOS DE IMPUESTOS DEL EXTRACTO:");
+    impuestosExtracto.slice(0, 5).forEach((imp, index) => {
+      console.log(`  ${index + 1}. "${imp.concepto}" - $${imp.importe}`);
     });
     
     // PASO 3: Matching con logging
