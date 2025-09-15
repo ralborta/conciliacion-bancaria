@@ -8,176 +8,60 @@ export class AsientosGenerator {
     periodo: string
   ): { asientos: AsientoContable[], resumen: AsientosResumen } {
     
+    console.log('🔍 AsientosGenerator - Iniciando con', impuestos.length, 'impuestos');
+    console.log('🔍 Primer impuesto ejemplo:', impuestos[0]);
+    
     const asientos: AsientoContable[] = [];
     const fecha = this.formatPeriodoToDate(periodo);
     const conceptoBase = `${banco} ${periodo}`;
     
-    console.log("🏦 GENERANDO ASIENTOS CONTABLES:", {
-      impuestos: impuestos.length,
-      banco,
-      periodo,
-      fecha
+    // DEBUGGING: Ver todos los conceptos únicos
+    const conceptosUnicos = [...new Set(impuestos.map(i => i.concepto || i.descripcion || i.tipo || 'Sin concepto'))];
+    console.log('🔍 Conceptos únicos encontrados:', conceptosUnicos);
+    
+    // 1. AGRUPAR TODOS LOS IMPUESTOS BANCARIOS COMO UNO SOLO POR AHORA
+    // (Después refinamos la clasificación)
+    
+    const todosLosImpuestos = impuestos.filter(i => i.importe && Math.abs(i.importe) > 0);
+    console.log('🔍 Impuestos con importe válido:', todosLosImpuestos.length);
+    
+    if (todosLosImpuestos.length === 0) {
+      console.log('⚠️ No hay impuestos con importes válidos');
+      return { asientos: [], resumen: this.generateResumen([]) };
+    }
+    
+    // CLASIFICAR POR TIPO DE IMPUESTO BASADO EN LOS DATOS REALES
+    const clasificados = this.clasificarImpuestos(todosLosImpuestos);
+    console.log('🔍 Impuestos clasificados:', clasificados);
+    
+    // GENERAR ASIENTOS POR CADA CLASIFICACIÓN
+    Object.entries(clasificados).forEach(([tipo, impuestosDelTipo]) => {
+      if (impuestosDelTipo.length > 0) {
+        const totalImporte = impuestosDelTipo.reduce((sum, imp) => sum + Math.abs(imp.importe || 0), 0);
+        
+        if (totalImporte > 0) {
+          console.log(`✅ Generando asiento para ${tipo}: $${totalImporte}`);
+          
+          asientos.push({
+            id: `${tipo.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}`,
+            fecha,
+            concepto: conceptoBase,
+            circuitoContable: 'default',
+            cuenta: this.getCuentaContable(tipo),
+            debe: totalImporte,
+            haber: 0,
+            descripcion: `${tipo} - ${impuestosDelTipo.length} movimientos`
+          });
+        }
+      }
     });
     
-    // 1. IMPUESTO LEY 25413 - CRÉDITOS
-    const creditos25413 = impuestos.filter(i => 
-      i.concepto?.toLowerCase().includes('credito') && 
-      i.concepto?.toLowerCase().includes('25413')
-    );
-    
-    if (creditos25413.length > 0) {
-      const totalCreditos = creditos25413.reduce((sum, item) => sum + Math.abs(item.importe || 0), 0);
-      asientos.push({
-        id: `credito_25413_${Date.now()}`,
-        fecha,
-        concepto: conceptoBase,
-        circuitoContable: 'default',
-        cuenta: 'Credito Impuesto Ley 25413',
-        debe: totalCreditos,
-        haber: 0,
-        descripcion: `Crédito impuesto débitos y créditos bancarios - ${creditos25413.length} movimientos`
-      });
-    }
-
-    // 2. IMPUESTO LEY 25413 - DÉBITOS
-    const debitos25413 = impuestos.filter(i => 
-      i.concepto?.toLowerCase().includes('debito') && 
-      i.concepto?.toLowerCase().includes('25413')
-    );
-    
-    if (debitos25413.length > 0) {
-      const totalDebitos = debitos25413.reduce((sum, item) => sum + Math.abs(item.importe || 0), 0);
-      asientos.push({
-        id: `debito_25413_${Date.now()}`,
-        fecha,
-        concepto: conceptoBase,
-        circuitoContable: 'default',
-        cuenta: 'Debito Impuesto Ley 25413',
-        debe: 0,
-        haber: totalDebitos,
-        descripcion: `Débito impuesto débitos y créditos bancarios - ${debitos25413.length} movimientos`
-      });
-    }
-
-    // 3. PERCEPCIONES IVA
-    const percepcionesIVA = impuestos.filter(i => 
-      i.concepto?.toLowerCase().includes('percepcion') && 
-      i.concepto?.toLowerCase().includes('iva')
-    );
-    
-    if (percepcionesIVA.length > 0) {
-      const totalPercepcionesIVA = percepcionesIVA.reduce((sum, item) => sum + Math.abs(item.importe || 0), 0);
-      asientos.push({
-        id: `percepciones_iva_${Date.now()}`,
-        fecha,
-        concepto: conceptoBase,
-        circuitoContable: 'default',
-        cuenta: 'Percepciones IVA',
-        debe: totalPercepcionesIVA,
-        haber: 0,
-        descripcion: `Percepciones IVA sufridas - ${percepcionesIVA.length} movimientos`
-      });
-    }
-
-    // 4. PERCEPCIONES IIBB
-    const percepcionesIIBB = impuestos.filter(i => 
-      (i.concepto?.toLowerCase().includes('iibb') || 
-       i.concepto?.toLowerCase().includes('ingresos brutos')) &&
-      i.concepto?.toLowerCase().includes('percep')
-    );
-    
-    if (percepcionesIIBB.length > 0) {
-      const totalPercepcionesIIBB = percepcionesIIBB.reduce((sum, item) => sum + Math.abs(item.importe || 0), 0);
-      asientos.push({
-        id: `percepciones_iibb_${Date.now()}`,
-        fecha,
-        concepto: conceptoBase,
-        circuitoContable: 'default',
-        cuenta: 'IIBB Percepciones',
-        debe: totalPercepcionesIIBB,
-        haber: 0,
-        descripcion: `Percepciones IIBB sufridas - ${percepcionesIIBB.length} movimientos`
-      });
-    }
-
-    // 5. SIRCREB
-    const sircreb = impuestos.filter(i => 
-      i.concepto?.toLowerCase().includes('sircreb')
-    );
-    
-    if (sircreb.length > 0) {
-      const totalSircreb = sircreb.reduce((sum, item) => sum + Math.abs(item.importe || 0), 0);
-      if (totalSircreb > 0) {
-        asientos.push({
-          id: `sircreb_${Date.now()}`,
-          fecha,
-          concepto: conceptoBase,
-          circuitoContable: 'default',
-          cuenta: 'SIRCREB',
-          debe: totalSircreb,
-          haber: 0,
-          descripcion: `SIRCREB - ${sircreb.length} movimientos`
-        });
-      }
-    }
-
-    // 6. OTROS IMPUESTOS, TASAS Y CONTRIBUCIONES
-    const otrosImpuestos = impuestos.filter(i => 
-      i.concepto?.toLowerCase().includes('impuesto') ||
-      i.concepto?.toLowerCase().includes('tasa') ||
-      i.concepto?.toLowerCase().includes('contribucion')
-    ).filter(i => 
-      !i.concepto?.toLowerCase().includes('25413') &&
-      !i.concepto?.toLowerCase().includes('iva') &&
-      !i.concepto?.toLowerCase().includes('iibb') &&
-      !i.concepto?.toLowerCase().includes('sircreb')
-    );
-    
-    if (otrosImpuestos.length > 0) {
-      const totalOtros = otrosImpuestos.reduce((sum, item) => sum + Math.abs(item.importe || 0), 0);
-      if (totalOtros > 0) {
-        asientos.push({
-          id: `otros_impuestos_${Date.now()}`,
-          fecha,
-          concepto: conceptoBase,
-          circuitoContable: 'default',
-          cuenta: 'Impuestos, Tasas y Contribuciones',
-          debe: totalOtros,
-          haber: 0,
-          descripcion: `Otros impuestos y tasas - ${otrosImpuestos.length} movimientos`
-        });
-      }
-    }
-
-    // 7. INTERESES Y GASTOS BANCARIOS
-    const gastosBancarios = impuestos.filter(i => 
-      i.concepto?.toLowerCase().includes('interes') ||
-      i.concepto?.toLowerCase().includes('gasto') ||
-      i.concepto?.toLowerCase().includes('comision')
-    );
-    
-    if (gastosBancarios.length > 0) {
-      const totalGastos = gastosBancarios.reduce((sum, item) => sum + Math.abs(item.importe || 0), 0);
-      if (totalGastos > 0) {
-        asientos.push({
-          id: `gastos_bancarios_${Date.now()}`,
-          fecha,
-          concepto: conceptoBase,
-          circuitoContable: 'default',
-          cuenta: 'Intereses y Gastos Bancarios',
-          debe: totalGastos,
-          haber: 0,
-          descripcion: `Intereses y gastos bancarios - ${gastosBancarios.length} movimientos`
-        });
-      }
-    }
-
-    // 8. CONTRAPARTIDA - BANCO
+    // CONTRAPARTIDA BANCARIA
     const totalDebe = asientos.reduce((sum, a) => sum + a.debe, 0);
     const totalHaber = asientos.reduce((sum, a) => sum + a.haber, 0);
     const diferencia = totalDebe - totalHaber;
     
-    if (Math.abs(diferencia) > 0.01) { // Evitar diferencias por redondeo
+    if (Math.abs(diferencia) > 0.01) {
       asientos.push({
         id: `banco_contrapartida_${Date.now()}`,
         fecha,
@@ -189,18 +73,74 @@ export class AsientosGenerator {
         descripcion: `Contrapartida bancaria - movimientos de impuestos`
       });
     }
-
-    // Generar resumen
+    
+    console.log('✅ Asientos generados:', asientos.length);
     const resumen = this.generateResumen(asientos);
     
-    console.log("✅ ASIENTOS GENERADOS:", {
-      totalAsientos: asientos.length,
-      totalDebe: resumen.totalDebe,
-      totalHaber: resumen.totalHaber,
-      balanceado: resumen.balanceado
+    return { asientos, resumen };
+  }
+  
+  private static clasificarImpuestos(impuestos: any[]): { [key: string]: any[] } {
+    const clasificados: { [key: string]: any[] } = {
+      'Impuesto Ley 25413 - Créditos': [],
+      'Impuesto Ley 25413 - Débitos': [],
+      'Percepciones IVA': [],
+      'Percepciones IIBB': [],
+      'SIRCREB': [],
+      'Retenciones Ganancias': [],
+      'Retenciones IVA': [],
+      'Comisiones y Gastos Bancarios': [],
+      'Otros Impuestos': []
+    };
+    
+    impuestos.forEach(impuesto => {
+      const concepto = (impuesto.concepto || impuesto.descripcion || impuesto.tipo || '').toLowerCase();
+      const importe = impuesto.importe || 0;
+      
+      console.log(`🔍 Clasificando: "${concepto}" - Importe: ${importe}`);
+      
+      // CLASIFICACIÓN MEJORADA BASADA EN PATRONES COMUNES
+      if (concepto.includes('25413') || concepto.includes('credito') || concepto.includes('débito')) {
+        if (importe > 0) {
+          clasificados['Impuesto Ley 25413 - Créditos'].push(impuesto);
+        } else {
+          clasificados['Impuesto Ley 25413 - Débitos'].push(impuesto);
+        }
+      } else if (concepto.includes('percep') && concepto.includes('iva')) {
+        clasificados['Percepciones IVA'].push(impuesto);
+      } else if (concepto.includes('percep') && (concepto.includes('iibb') || concepto.includes('ingresos brutos'))) {
+        clasificados['Percepciones IIBB'].push(impuesto);
+      } else if (concepto.includes('sircreb')) {
+        clasificados['SIRCREB'].push(impuesto);
+      } else if (concepto.includes('reten') && concepto.includes('ganancia')) {
+        clasificados['Retenciones Ganancias'].push(impuesto);
+      } else if (concepto.includes('reten') && concepto.includes('iva')) {
+        clasificados['Retenciones IVA'].push(impuesto);
+      } else if (concepto.includes('comision') || concepto.includes('gasto') || concepto.includes('interes') || concepto.includes('bancario')) {
+        clasificados['Comisiones y Gastos Bancarios'].push(impuesto);
+      } else {
+        // Si no coincide con ningún patrón específico, va a "Otros"
+        clasificados['Otros Impuestos'].push(impuesto);
+      }
     });
     
-    return { asientos, resumen };
+    return clasificados;
+  }
+  
+  private static getCuentaContable(tipoImpuesto: string): string {
+    const cuentas: { [key: string]: string } = {
+      'Impuesto Ley 25413 - Créditos': 'Crédito Impuesto Ley 25413',
+      'Impuesto Ley 25413 - Débitos': 'Débito Impuesto Ley 25413',
+      'Percepciones IVA': 'Percepciones IVA',
+      'Percepciones IIBB': 'IIBB Percepciones',
+      'SIRCREB': 'SIRCREB',
+      'Retenciones Ganancias': 'Retenciones Ganancias Sufridas',
+      'Retenciones IVA': 'Retenciones IVA Sufridas',
+      'Comisiones y Gastos Bancarios': 'Intereses y Gastos Bancarios',
+      'Otros Impuestos': 'Impuestos, Tasas y Contribuciones'
+    };
+    
+    return cuentas[tipoImpuesto] || 'Otros Impuestos';
   }
 
   private static generateResumen(asientos: AsientoContable[]): AsientosResumen {
@@ -208,7 +148,6 @@ export class AsientosGenerator {
     const totalHaber = asientos.reduce((sum, a) => sum + a.haber, 0);
     const diferencia = Math.abs(totalDebe - totalHaber);
     
-    // Agrupar por tipo de cuenta
     const asientosPorTipo: { [key: string]: { cantidad: number; totalDebe: number; totalHaber: number } } = {};
     
     asientos.forEach(asiento => {
@@ -226,13 +165,12 @@ export class AsientosGenerator {
       totalDebe,
       totalHaber,
       diferencia,
-      balanceado: diferencia < 0.01, // Tolerancia para redondeo
+      balanceado: diferencia < 0.01,
       asientosPorTipo
     };
   }
 
   private static formatPeriodoToDate(periodo: string): string {
-    // Convertir "04-24" a "30/04/2024" (último día del mes)
     try {
       const [month, year] = periodo.split('-');
       const fullYear = `20${year}`;

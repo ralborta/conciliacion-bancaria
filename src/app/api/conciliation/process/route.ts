@@ -142,6 +142,38 @@ export async function POST(request: NextRequest) {
     // 🚨 GENERAR ASIENTOS CONTABLES - AGREGAR ESTAS LÍNEAS:
     console.log('🔍 Generando asientos contables...');
     console.log('🔍 Impuestos encontrados:', impuestosNormalizados?.length || 0);
+    
+    // 🔍 DEBUGGING ESTRUCTURA DE IMPUESTOS:
+    console.log('🔍 DEBUGGING ESTRUCTURA DE IMPUESTOS:');
+    console.log('🔍 Total impuestos:', impuestosNormalizados?.length || 0);
+
+    if (impuestosNormalizados && impuestosNormalizados.length > 0) {
+      // Mostrar los primeros 3 impuestos completos
+      console.log('🔍 Primeros 3 impuestos (estructura completa):');
+      impuestosNormalizados.slice(0, 3).forEach((imp, index) => {
+        console.log(`Impuesto ${index + 1}:`, JSON.stringify(imp, null, 2));
+      });
+      
+      // Mostrar todas las propiedades únicas
+      const todasLasPropiedades = new Set();
+      impuestosNormalizados.forEach(imp => {
+        Object.keys(imp || {}).forEach(key => todasLasPropiedades.add(key));
+      });
+      console.log('🔍 Propiedades disponibles en impuestos:', Array.from(todasLasPropiedades));
+      
+      // Mostrar todos los conceptos únicos
+      const conceptos = impuestosNormalizados.map(i => {
+        return i.concepto || i.descripcion || i.tipo || i.proveedor || 'Sin concepto';
+      });
+      const conceptosUnicos = [...new Set(conceptos)];
+      console.log('🔍 Conceptos únicos encontrados:', conceptosUnicos);
+      
+      // Mostrar rangos de importes
+      const importes = impuestosNormalizados.map(i => i.importe || i.monto || i.total || 0);
+      const importeMin = Math.min(...importes);
+      const importeMax = Math.max(...importes);
+      console.log('🔍 Rango de importes:', { min: importeMin, max: importeMax });
+    }
 
     let asientos: any[] = [];
     let resumen = {
