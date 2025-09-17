@@ -30,7 +30,7 @@ export class ArgentinaMatchingEngine {
     const { impuestos, movimientosLimpios } = this.separateImpuestos(extracto);
     console.log("📊 Impuestos separados:", { impuestos: impuestos.length, movimientosLimpios: movimientosLimpios.length });
 
-    // 2. Hacer matching simple de ventas (ingresos)
+    // 2. Hacer matching por MONTO de ventas (ingresos)
     const ingresos = movimientosLimpios.filter(m => m.importe > 0);
     console.log("🔄 Procesando ventas:", { ingresos: ingresos.length, ventas: ventas.length });
     
@@ -41,8 +41,8 @@ export class ArgentinaMatchingEngine {
       for (let j = 0; j < ventas.length; j++) {
         const venta = ventas[j];
         
-        // Matching simple por concepto (como el Python)
-        if (this.simpleMatch(ingreso.concepto, venta.cliente || '')) {
+        // NUEVO: Matching por MONTO (no por concepto)
+        if (this.matchByAmount(ingreso.importe, venta.total)) {
           matches.push({
             id: `venta_match_${i}_${j}`,
             extractoItem: ingreso,
@@ -50,7 +50,7 @@ export class ArgentinaMatchingEngine {
             score: 0.9,
             status: 'matched',
             tipo: 'venta',
-            reason: 'Match simple por concepto'
+            reason: 'Match por monto'
           });
           matched = true;
           break;
@@ -137,6 +137,19 @@ export class ArgentinaMatchingEngine {
     
     // Matching bidireccional como el Python
     return conceptoNorm.includes(nombreNorm) || nombreNorm.includes(conceptoNorm);
+  }
+
+  // NUEVO: Matching por monto con tolerancia
+  private matchByAmount(monto1: number, monto2: number): boolean {
+    if (!monto1 || !monto2) return false;
+    
+    const tolerancia = 0.02; // 2%
+    const diferencia = Math.abs(monto1 - monto2);
+    const margen = monto2 * tolerancia;
+    
+    console.log(`🔍 MATCHING MONTO: ${monto1} vs ${monto2} - Diferencia: ${diferencia}, Margen: ${margen}, Match: ${diferencia <= margen}`);
+    
+    return diferencia <= margen;
   }
 
   // SEPARAR IMPUESTOS COMO EL PYTHON - VERSIÓN SIMPLE
