@@ -247,7 +247,8 @@ function ResultsContent() {
                   referencia: mov.referencia,
                   banco: mov.banco,
                   cuenta: mov.cuenta,
-                  onConciliate: handleManualConciliation
+                  onConciliate: handleManualConciliation,
+                  matchingDetails: (mov as any).matchingDetails
                 }}
                 index={i}
               />

@@ -246,7 +246,20 @@ export async function POST(request: NextRequest) {
             reason: matchResult?.reason || 'Sin procesar',
             referencia: `REF-${index}`,
             banco: mov.banco || banco,
-            cuenta: mov.cuenta || 'Cuenta Principal'
+            cuenta: mov.cuenta || 'Cuenta Principal',
+            // Información de matching para comparación
+            matchingDetails: {
+              matchedWith: matchResult?.matchedWith || null,
+              tipoDocumento: matchResult?.tipo || null,
+              score: matchResult?.score || 0,
+              // Información del documento que se intentó matchear
+              documentoInfo: matchResult?.matchedWith ? {
+                fecha: matchResult.matchedWith.fechaEmision?.toISOString().split('T')[0] || 'N/A',
+                monto: matchResult.matchedWith.total || 0,
+                cliente: matchResult.matchedWith.cliente || matchResult.matchedWith.proveedor || 'N/A',
+                numero: matchResult.matchedWith.numero || 'N/A'
+              } : null
+            }
           };
         }),
         
