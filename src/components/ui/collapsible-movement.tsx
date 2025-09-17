@@ -111,16 +111,24 @@ export default function CollapsibleMovement({ movement, index }: CollapsibleMove
               <h4 className="text-sm font-semibold text-gray-900 mb-2">Detalles del Movimiento</h4>
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Fecha:</span>
+                  <span className="text-gray-600">Fecha Banco:</span>
                   <span className="text-gray-900">{movement.fecha}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Concepto:</span>
-                  <span className="text-gray-900">{movement.concepto}</span>
+                  <span className="text-gray-600">Fecha Cuenta:</span>
+                  <span className="text-gray-900">{movement.matchingDetails?.documentoInfo?.fecha || 'N/A'}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Monto:</span>
+                  <span className="text-gray-600">Monto Banco:</span>
                   <span className="text-gray-900 font-semibold">${Math.abs(movement.monto).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Monto Cuenta:</span>
+                  <span className="text-gray-900 font-semibold">${movement.matchingDetails?.documentoInfo?.monto?.toFixed(2) || '0.00'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Concepto Banco:</span>
+                  <span className="text-gray-900">{movement.concepto}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Tipo:</span>
@@ -161,50 +169,6 @@ export default function CollapsibleMovement({ movement, index }: CollapsibleMove
           </div>
         </div>
 
-        {/* Comparación Simple de Matching */}
-        {movement.matchingDetails?.documentoInfo && (
-          <div className="mt-4 pt-4 border-t border-gray-200">
-            <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
-              <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
-              Comparación Simple
-            </h4>
-            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-              <div className="grid grid-cols-2 gap-6 text-sm">
-                {/* Fechas */}
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 font-medium">Fecha Banco:</span>
-                    <span className="text-gray-900 font-semibold">{movement.fecha}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 font-medium">Fecha Cuenta:</span>
-                    <span className="text-gray-900 font-semibold">{movement.matchingDetails.documentoInfo.fecha}</span>
-                  </div>
-                </div>
-
-                {/* Montos */}
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 font-medium">Monto Banco:</span>
-                    <span className="text-gray-900 font-semibold">${Math.abs(movement.monto).toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 font-medium">Monto Cuenta:</span>
-                    <span className="text-gray-900 font-semibold">${movement.matchingDetails.documentoInfo.monto.toFixed(2)}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Concepto del Banco */}
-              <div className="mt-4 pt-3 border-t border-gray-300">
-                <div className="flex justify-between">
-                  <span className="text-gray-600 font-medium">Concepto Banco:</span>
-                  <span className="text-gray-900 font-semibold">{movement.concepto}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
           {/* Razón de Pendiente - Destacada */}
           {movement.estado === 'pending' && movement.reason && movement.reason !== 'Sin procesar' && (
