@@ -149,8 +149,13 @@ function ResultsContent() {
                       </span>
                     </td>
                     <td className="p-2 text-center">
-                      <span className="px-2 py-1 rounded text-xs bg-yellow-100 text-yellow-800">
+                      <span className="px-2 py-1 rounded text-xs bg-yellow-100 text-yellow-800" title={mov.reason || mov.estado}>
                         {mov.estado}
+                        {mov.reason && mov.reason !== 'Sin conciliar' && (
+                          <div className="text-xs text-gray-600 mt-1">
+                            {mov.reason}
+                          </div>
+                        )}
                       </span>
                     </td>
                   </tr>
@@ -220,8 +225,13 @@ function ResultsContent() {
                       </span>
                     </td>
                     <td className="p-2 text-center">
-                      <span className="px-2 py-1 rounded text-xs bg-yellow-100 text-yellow-800">
+                      <span className="px-2 py-1 rounded text-xs bg-yellow-100 text-yellow-800" title={mov.reason || mov.estado}>
                         {mov.estado}
+                        {mov.reason && mov.reason !== 'Sin conciliar' && (
+                          <div className="text-xs text-gray-600 mt-1">
+                            {mov.reason}
+                          </div>
+                        )}
                       </span>
                     </td>
                   </tr>

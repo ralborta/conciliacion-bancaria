@@ -61,6 +61,9 @@ export class ArgentinaMatchingEngine {
       }
       
       if (!matched) {
+        // Verificar coincidencias parciales para semi-conciliados
+        const observacion = this.verificarCoincidenciasParciales(ingreso, ventas, 'venta');
+        
         matches.push({
           id: `venta_pending_${i}`,
           extractoItem: ingreso,
@@ -68,7 +71,7 @@ export class ArgentinaMatchingEngine {
           score: 0,
           status: 'pending',
           tipo: 'venta',
-          reason: 'Sin conciliar'
+          reason: observacion
         });
       }
     }
@@ -101,6 +104,9 @@ export class ArgentinaMatchingEngine {
       }
       
       if (!matched) {
+        // Verificar coincidencias parciales para semi-conciliados
+        const observacion = this.verificarCoincidenciasParciales(egreso, compras, 'compra');
+        
         matches.push({
           id: `compra_pending_${i}`,
           extractoItem: egreso,
@@ -108,7 +114,7 @@ export class ArgentinaMatchingEngine {
           score: 0,
           status: 'pending',
           tipo: 'compra',
-          reason: 'Sin conciliar'
+          reason: observacion
         });
       }
     }
@@ -165,6 +171,52 @@ export class ArgentinaMatchingEngine {
     console.log(`🔍 MATCHING FECHA: ${fecha1.toISOString().split('T')[0]} vs ${fecha2.toISOString().split('T')[0]} - Diferencia: ${diferencia.toFixed(1)} días, Match: ${diferencia <= tolerancia}`);
     
     return diferencia <= tolerancia;
+  }
+
+  // NUEVO: Verificar coincidencias parciales para semi-conciliados
+  private verificarCoincidenciasParciales(extractoItem: any, items: any[], tipo: 'venta' | 'compra'): string {
+    if (!items || items.length === 0) {
+      return `No hay ${tipo === 'venta' ? 'ventas' : 'compras'} disponibles`;
+    }
+
+    let mejorMonto = null;
+    let mejorFecha = null;
+    let mejorMontoDiff = Infinity;
+    let mejorFechaDiff = Infinity;
+
+    // Buscar la mejor coincidencia parcial
+    for (const item of items) {
+      // Verificar monto
+      const montoExtracto = Math.abs(extractoItem.importe);
+      const montoItem = item.total;
+      const montoDiff = Math.abs(montoExtracto - montoItem);
+      const montoTolerancia = montoItem * 0.1; // 10% de tolerancia para semi-conciliados
+
+      if (montoDiff < mejorMontoDiff && montoDiff <= montoTolerancia) {
+        mejorMonto = item;
+        mejorMontoDiff = montoDiff;
+      }
+
+      // Verificar fecha
+      const fechaDiff = Math.abs(extractoItem.fechaOperacion.getTime() - item.fechaEmision.getTime()) / (1000 * 60 * 60 * 24);
+      const fechaTolerancia = 7; // 7 días de tolerancia para semi-conciliados
+
+      if (fechaDiff < mejorFechaDiff && fechaDiff <= fechaTolerancia) {
+        mejorFecha = item;
+        mejorFechaDiff = fechaDiff;
+      }
+    }
+
+    // Generar observación basada en las mejores coincidencias
+    if (mejorMonto && mejorFecha) {
+      return `Monto y fecha cercanos (monto: $${mejorMontoDiff.toFixed(0)}, fecha: ${mejorFechaDiff.toFixed(1)} días)`;
+    } else if (mejorMonto) {
+      return `Monto coincide, fecha no (diferencia: $${mejorMontoDiff.toFixed(0)})`;
+    } else if (mejorFecha) {
+      return `Fecha coincide, monto no (diferencia: ${mejorFechaDiff.toFixed(1)} días)`;
+    } else {
+      return 'Sin coincidencias';
+    }
   }
 
   // SEPARAR IMPUESTOS COMO EL PYTHON - VERSIÓN SIMPLE
