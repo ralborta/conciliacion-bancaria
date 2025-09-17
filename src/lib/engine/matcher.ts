@@ -180,13 +180,14 @@ export class ConciliationEngine {
 
       const concepto = String(item[bancoConfig.campos.concepto] || item.concepto || '')
       
-      // 🔍 DEBUG: Ver qué está pasando con el concepto
+      // NUEVA: Detección automática de formato de extracto
+      const { importe, tipo } = this.detectarFormatoExtracto(item);
+      
+      // 🔍 DEBUG: Ver qué está pasando con el concepto y formato
       if (index < 3) {
         console.log(`🔍 NORMALIZANDO MOVIMIENTO ${index + 1}:`);
-        console.log(`  - bancoConfig.campos.concepto: "${bancoConfig.campos.concepto}"`);
-        console.log(`  - item[bancoConfig.campos.concepto]: "${item[bancoConfig.campos.concepto]}"`);
-        console.log(`  - item.concepto: "${item.concepto}"`);
-        console.log(`  - concepto final: "${concepto}"`);
+        console.log(`  - Formato detectado: ${tipo}, Importe: ${importe}`);
+        console.log(`  - concepto: "${concepto}"`);
         console.log(`  - item completo:`, JSON.stringify(item, null, 2));
       }
       
@@ -197,13 +198,61 @@ export class ConciliationEngine {
         fechaOperacion,
         fechaValor: item.fecha_valor ? this.parseDate(item.fecha_valor) : undefined,
         concepto,
-        importe: parseFloat(String(item[bancoConfig.campos.importe] || item.importe || 0)),
+        importe, // Usar el importe detectado automáticamente
         saldo: item.saldo ? parseFloat(String(item.saldo)) : undefined,
         cuitContraparte: extractCUITFromConcept(concepto) || (item[bancoConfig.campos.cuit] ? String(item[bancoConfig.campos.cuit]) : undefined),
         cbuCvuContraparte: item[bancoConfig.campos.cbu] ? String(item[bancoConfig.campos.cbu]) : undefined,
         referencia: item[bancoConfig.campos.referencia] ? String(item[bancoConfig.campos.referencia]) : undefined
       }
     })
+  }
+
+  // NUEVA: Detección automática de formato de extracto
+  private detectarFormatoExtracto(item: Record<string, unknown>): { importe: number, tipo: 'ingreso' | 'egreso' | 'neutro' } {
+    // 1º Verificar si tiene campo 'importe' único
+    if (item.importe !== undefined) {
+      const importe = this.parseNumber(item.importe);
+      return {
+        importe,
+        tipo: importe > 0 ? 'ingreso' : importe < 0 ? 'egreso' : 'neutro'
+      };
+    }
+    
+    // 2º Verificar si tiene débito/crédito separados
+    if (item.debito !== undefined || item.credito !== undefined) {
+      if (item.debito && this.parseNumber(item.debito) > 0) {
+        return {
+          importe: -this.parseNumber(item.debito), // Negativo (egreso)
+          tipo: 'egreso'
+        };
+      } else if (item.credito && this.parseNumber(item.credito) > 0) {
+        return {
+          importe: +this.parseNumber(item.credito), // Positivo (ingreso)
+          tipo: 'ingreso'
+        };
+      }
+    }
+    
+    // 3º Verificar conceptos INGRESO/EGRESO
+    if (item.concepto) {
+      const concepto = String(item.concepto).toLowerCase();
+      if (concepto.includes('ingreso') || concepto.includes('credito')) {
+        const monto = this.parseNumber(item.monto || item.importe || 0);
+        return {
+          importe: +monto, // Positivo
+          tipo: 'ingreso'
+        };
+      } else if (concepto.includes('egreso') || concepto.includes('debito')) {
+        const monto = this.parseNumber(item.monto || item.importe || 0);
+        return {
+          importe: -monto, // Negativo
+          tipo: 'egreso'
+        };
+      }
+    }
+    
+    // Si no se puede determinar, devolver neutro
+    return { importe: 0, tipo: 'neutro' };
   }
 
   private getBancoConfig(banco: string) {
