@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { DebugAsientos } from '@/components/conciliacion/DebugAsientos';
+import CollapsibleMovement from '@/components/ui/collapsible-movement';
 
 function ResultsContent() {
   const [data, setData] = useState<any>(null);
@@ -203,49 +204,25 @@ function ResultsContent() {
       
       {data.movements && data.movements.length > 0 && (
         <div className="bg-white rounded shadow p-4">
-          <h3 className="text-lg font-bold mb-4">Movimientos Bancarios</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left p-2">Fecha</th>
-                  <th className="text-left p-2">Concepto</th>
-                  <th className="text-right p-2">Monto</th>
-                  <th className="text-center p-2">Tipo</th>
-                  <th className="text-center p-2">Estado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.movements.slice(0, 20).map((mov: any, i: number) => (
-                  <tr key={i} className="border-b">
-                    <td className="p-2">{mov.fecha}</td>
-                    <td className="p-2">{mov.concepto}</td>
-                    <td className="p-2 text-right">${mov.monto?.toFixed(2) || '0.00'}</td>
-                    <td className="p-2 text-center">
-                      <span className={`px-2 py-1 rounded text-xs ${
-                        mov.tipo === 'Crédito' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                      }`}>
-                        {mov.tipo}
-                      </span>
-                    </td>
-                    <td className="p-2 text-center">
-                      <span className={`px-2 py-1 rounded text-xs ${
-                        mov.estado === 'conciliado' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`} title={(mov as any).reason || mov.estado}>
-                        {mov.estado}
-                        {(mov as any).reason && (mov as any).reason !== 'Sin conciliar' && (
-                          <div className="text-xs text-gray-600 mt-1">
-                            {(mov as any).reason}
-                          </div>
-                        )}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <h3 className="text-lg font-bold mb-4">Movimientos Bancarios ({data.movements.length})</h3>
+          <div className="space-y-2">
+            {data.movements.slice(0, 20).map((mov: any, i: number) => (
+              <CollapsibleMovement 
+                key={i} 
+                movement={{
+                  fecha: mov.fecha,
+                  concepto: mov.concepto,
+                  monto: mov.monto || 0,
+                  tipo: mov.tipo,
+                  estado: mov.estado,
+                  reason: (mov as any).reason,
+                  referencia: mov.referencia,
+                  banco: mov.banco,
+                  cuenta: mov.cuenta
+                }}
+                index={i}
+              />
+            ))}
           </div>
         </div>
       )}

@@ -11,6 +11,7 @@
     "build:railway": "next build"
   },
   "dependencies": {
+    "@heroicons/react": "^2.2.0",
     "@hookform/resolvers": "^5.2.1",
     "@prisma/client": "^6.16.1",
     "@radix-ui/react-dialog": "^1.1.15",
