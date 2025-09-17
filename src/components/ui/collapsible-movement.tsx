@@ -13,6 +13,7 @@ interface MovementDetails {
   referencia?: string;
   banco?: string;
   cuenta?: string;
+  onConciliate?: (id: string) => void;
 }
 
 interface CollapsibleMovementProps {
@@ -149,12 +150,57 @@ export default function CollapsibleMovement({ movement, index }: CollapsibleMove
             </div>
           </div>
 
-          {/* Comentario/Observación */}
-          {movement.reason && movement.reason !== 'Sin procesar' && (
+          {/* Razón de Pendiente - Destacada */}
+          {movement.estado === 'pending' && movement.reason && movement.reason !== 'Sin procesar' && (
+            <div className="mt-4 pt-4 border-t border-yellow-200">
+              <h4 className="text-sm font-semibold text-yellow-800 mb-2 flex items-center">
+                <span className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
+                Razón de Pendiente
+              </h4>
+              <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                <p className="text-sm text-yellow-800 font-medium">{movement.reason}</p>
+                <div className="mt-2 text-xs text-yellow-700">
+                  <p>Este movimiento no pudo ser conciliado automáticamente. Revisa los detalles y marca como conciliado si corresponde.</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Razón de Conciliación */}
+          {movement.estado === 'conciliado' && movement.reason && (
+            <div className="mt-4 pt-4 border-t border-green-200">
+              <h4 className="text-sm font-semibold text-green-800 mb-2 flex items-center">
+                <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                Razón de Conciliación
+              </h4>
+              <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                <p className="text-sm text-green-800 font-medium">{movement.reason}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Checkbox para Conciliación Manual */}
+          {movement.estado === 'pending' && movement.onConciliate && (
             <div className="mt-4 pt-4 border-t border-gray-200">
-              <h4 className="text-sm font-semibold text-gray-900 mb-2">Observación</h4>
-              <div className="bg-white p-3 rounded-lg border border-gray-200">
-                <p className="text-sm text-gray-700">{movement.reason}</p>
+              <div className="flex items-center justify-between bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id={`conciliate-${index}`}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        movement.onConciliate?.(movement.referencia || `mov_${index}`);
+                      }
+                    }}
+                  />
+                  <label htmlFor={`conciliate-${index}`} className="ml-2 text-sm font-medium text-blue-800">
+                    Marcar como conciliado manualmente
+                  </label>
+                </div>
+                <span className="text-xs text-blue-600">
+                  ✓ Confirmar conciliación
+                </span>
               </div>
             </div>
           )}

@@ -8,8 +8,36 @@ import CollapsibleMovement from '@/components/ui/collapsible-movement';
 function ResultsContent() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [conciliatedMovements, setConciliatedMovements] = useState<Set<string>>(new Set());
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('sessionId');
+  
+  // Función para manejar conciliación manual
+  const handleManualConciliation = (movementId: string) => {
+    setConciliatedMovements(prev => new Set([...prev, movementId]));
+    
+    // Actualizar el estado del movimiento en los datos
+    if (data && data.movements) {
+      const updatedMovements = data.movements.map((mov: any) => {
+        if (mov.referencia === movementId || mov.id === movementId) {
+          return {
+            ...mov,
+            estado: 'conciliado',
+            reason: 'Conciliado manualmente por el usuario'
+          };
+        }
+        return mov;
+      });
+      
+      setData({
+        ...data,
+        movements: updatedMovements,
+        conciliados: data.conciliados + 1,
+        pendientes: data.pendientes - 1,
+        porcentajeConciliado: ((data.conciliados + 1) / data.totalMovimientos) * 100
+      });
+    }
+  };
   
   useEffect(() => {
     console.log('🔍 ResultsPage - Iniciando carga de datos');
@@ -218,7 +246,8 @@ function ResultsContent() {
                   reason: (mov as any).reason,
                   referencia: mov.referencia,
                   banco: mov.banco,
-                  cuenta: mov.cuenta
+                  cuenta: mov.cuenta,
+                  onConciliate: handleManualConciliation
                 }}
                 index={i}
               />
