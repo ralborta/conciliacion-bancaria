@@ -248,7 +248,6 @@ export default function CollapsibleMovement({ movement, index }: CollapsibleMove
             </div>
           </div>
         )}
-          </div>
 
           {/* Razón de Pendiente - Destacada */}
           {movement.estado === 'pending' && movement.reason && movement.reason !== 'Sin procesar' && (
