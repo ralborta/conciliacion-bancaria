@@ -231,18 +231,24 @@ export async function POST(request: NextRequest) {
         porcentajeConciliado: totalMovimientos > 0 ? (conciliados / totalMovimientos) * 100 : 0,
         montoTotal: stats.montoTotal || 0,
         
-        // INCLUIR LOS MOVIMIENTOS REALES
-        movements: extractoNormalizado.slice(0, 50).map((mov, index) => ({
-          id: `mov_${index}`,
-          fecha: mov.fechaOperacion?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0],
-          concepto: mov.concepto || `Movimiento ${index + 1}`,
-          monto: mov.importe || 0,
-          tipo: (mov.importe || 0) > 0 ? 'Crédito' : 'Débito',
-          estado: 'pending',
-          referencia: `REF-${index}`,
-          banco: mov.banco || banco,
-          cuenta: mov.cuenta || 'Cuenta Principal'
-        })),
+        // INCLUIR LOS MOVIMIENTOS REALES CON RESULTADOS DEL MATCHING
+        movements: extractoNormalizado.slice(0, 50).map((mov, index) => {
+          // Buscar el resultado del matching para este movimiento
+          const matchResult = resultados.find(r => r.extractoItem.id === mov.id);
+          
+          return {
+            id: `mov_${index}`,
+            fecha: mov.fechaOperacion?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0],
+            concepto: mov.concepto || `Movimiento ${index + 1}`,
+            monto: mov.importe || 0,
+            tipo: (mov.importe || 0) > 0 ? 'Crédito' : 'Débito',
+            estado: matchResult ? (matchResult.status === 'matched' ? 'conciliado' : 'pending') : 'pending',
+            reason: matchResult?.reason || 'Sin procesar',
+            referencia: `REF-${index}`,
+            banco: mov.banco || banco,
+            cuenta: mov.cuenta || 'Cuenta Principal'
+          };
+        }),
         
         // INCLUIR LAS COMPRAS REALES
         compras: comprasNormalizadas.slice(0, 20).map((c, i) => ({
