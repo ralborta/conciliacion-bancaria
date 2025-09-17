@@ -208,3 +208,4 @@ export function AsientosTable({ data }: AsientosTableProps) {
 }
 
 
+

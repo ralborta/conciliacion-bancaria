@@ -242,7 +242,7 @@ function ResultsContent() {
                   <th className="text-left p-2">Fecha</th>
                   <th className="text-left p-2">Proveedor</th>
                   <th className="text-right p-2">Total</th>
-                  <th className="text-center p-2">Tipo</th>
+                  <th className="text-center p-2">Nro. de Factura</th>
                 </tr>
               </thead>
               <tbody>
@@ -251,7 +251,7 @@ function ResultsContent() {
                     <td className="p-2">{compra.fecha}</td>
                     <td className="p-2">{compra.proveedor}</td>
                     <td className="p-2 text-right">${compra.total?.toFixed(2) || '0.00'}</td>
-                    <td className="p-2 text-center">{compra.tipo}</td>
+                    <td className="p-2 text-center">{compra.numero}</td>
                   </tr>
                 ))}
               </tbody>

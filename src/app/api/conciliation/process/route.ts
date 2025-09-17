@@ -250,7 +250,7 @@ export async function POST(request: NextRequest) {
           fecha: c.fechaEmision?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0],
           proveedor: c.proveedor || `Proveedor ${i + 1}`,
           total: c.total || 0,
-          tipo: c.tipo || 'Compra',
+          numero: c.numero || '',
           cuit: c.cuitProveedor || ''
         })),
         
