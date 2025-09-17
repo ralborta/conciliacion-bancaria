@@ -43,6 +43,9 @@ export class ArgentinaMatchingEngine {
         
         // NUEVO: Matching por MONTO (no por concepto)
         if (this.matchByAmount(ingreso.importe, venta.total)) {
+          // Verificar también la fecha para informar
+          const fechaMatch = this.matchByDate(ingreso.fechaOperacion, venta.fechaEmision);
+          
           matches.push({
             id: `venta_match_${i}_${j}`,
             extractoItem: ingreso,
@@ -50,7 +53,7 @@ export class ArgentinaMatchingEngine {
             score: 0.9,
             status: 'matched',
             tipo: 'venta',
-            reason: 'Match por monto'
+            reason: fechaMatch ? 'Match por monto y fecha' : 'Match por monto (fecha no coincide)'
           });
           matched = true;
           break;
@@ -150,6 +153,18 @@ export class ArgentinaMatchingEngine {
     console.log(`🔍 MATCHING MONTO: ${monto1} vs ${monto2} - Diferencia: ${diferencia}, Margen: ${margen}, Match: ${diferencia <= margen}`);
     
     return diferencia <= margen;
+  }
+
+  // NUEVO: Matching por fecha con tolerancia
+  private matchByDate(fecha1: Date, fecha2: Date): boolean {
+    if (!fecha1 || !fecha2) return false;
+    
+    const tolerancia = 3; // 3 días
+    const diferencia = Math.abs(fecha1.getTime() - fecha2.getTime()) / (1000 * 60 * 60 * 24);
+    
+    console.log(`🔍 MATCHING FECHA: ${fecha1.toISOString().split('T')[0]} vs ${fecha2.toISOString().split('T')[0]} - Diferencia: ${diferencia.toFixed(1)} días, Match: ${diferencia <= tolerancia}`);
+    
+    return diferencia <= tolerancia;
   }
 
   // SEPARAR IMPUESTOS COMO EL PYTHON - VERSIÓN SIMPLE

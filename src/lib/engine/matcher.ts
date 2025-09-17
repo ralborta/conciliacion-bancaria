@@ -251,45 +251,31 @@ export class ConciliationEngine {
     return num;
   }
 
-  // NUEVA: Detección automática de formato de extracto
+  // NUEVA: Detección automática de formato de extracto para VENTAS
   private detectarFormatoExtracto(item: Record<string, unknown>): { importe: number, tipo: 'ingreso' | 'egreso' | 'neutro' } {
-    // 1º Verificar si tiene campo 'importe' único
+    // 1º Verificar si tiene campo 'importe' único (solo ingresos para ventas)
     if (item.importe !== undefined) {
       const importe = this.parseNumber(item.importe);
-      return {
-        importe,
-        tipo: importe > 0 ? 'ingreso' : importe < 0 ? 'egreso' : 'neutro'
-      };
-    }
-    
-    // 2º Verificar si tiene débito/crédito separados
-    if (item.debito !== undefined || item.credito !== undefined) {
-      if (item.debito && this.parseNumber(item.debito) > 0) {
-        return {
-          importe: -this.parseNumber(item.debito), // Negativo (egreso)
-          tipo: 'egreso'
-        };
-      } else if (item.credito && this.parseNumber(item.credito) > 0) {
-        return {
-          importe: +this.parseNumber(item.credito), // Positivo (ingreso)
-          tipo: 'ingreso'
-        };
+      if (importe > 0) {
+        return { importe, tipo: 'ingreso' };
       }
     }
     
-    // 3º Verificar conceptos INGRESO/EGRESO
-    if (item.concepto) {
-      const concepto = String(item.concepto).toLowerCase();
-      if (concepto.includes('ingreso') || concepto.includes('credito')) {
-        const monto = this.parseNumber(item.monto || item.importe || 0);
+    // 2º Verificar si tiene CRÉDITO separado (solo ingresos para ventas)
+    if (item.credito !== undefined && this.parseNumber(item.credito) > 0) {
+      return {
+        importe: +this.parseNumber(item.credito), // Positivo (ingreso)
+        tipo: 'ingreso'
+      };
+    }
+    
+    // 3º Verificar FECHA (segunda prioridad)
+    if (item.fecha !== undefined) {
+      const fecha = this.parseDate(item.fecha);
+      // Si hay fecha pero no monto, intentar con débito como egreso
+      if (item.debito && this.parseNumber(item.debito) > 0) {
         return {
-          importe: +monto, // Positivo
-          tipo: 'ingreso'
-        };
-      } else if (concepto.includes('egreso') || concepto.includes('debito')) {
-        const monto = this.parseNumber(item.monto || item.importe || 0);
-        return {
-          importe: -monto, // Negativo
+          importe: -this.parseNumber(item.debito), // Negativo (egreso)
           tipo: 'egreso'
         };
       }
