@@ -207,6 +207,50 @@ export class ConciliationEngine {
     })
   }
 
+  private parseNumber(value: any): number {
+    if (value === null || value === undefined || value === '') return 0;
+    
+    // Si ya es un número, devolverlo
+    if (typeof value === 'number') return value;
+    
+    // Convertir a string y limpiar
+    let str = String(value).trim();
+    
+    // Si está vacío, devolver 0
+    if (str === '') return 0;
+    
+    // MANEJAR SEPARADORES DE MILES Y DECIMALES
+    // Formato argentino: 1.231.287,21 → 1231287.21
+    // Formato internacional: 1,231,287.21 → 1231287.21
+    
+    // Si tiene punto como separador de miles y coma como decimal
+    if (str.includes('.') && str.includes(',') && str.lastIndexOf('.') > str.lastIndexOf(',')) {
+      // Formato argentino: 1.231.287,21
+      str = str.replace(/\./g, '').replace(',', '.');
+    }
+    // Si solo tiene comas (probablemente separador de miles)
+    else if (str.includes(',') && !str.includes('.')) {
+      // Formato: 1,231,287 → 1231287
+      str = str.replace(/,/g, '');
+    }
+    // Si tiene comas y puntos, y la coma está antes del último punto
+    else if (str.includes(',') && str.includes('.') && str.lastIndexOf(',') < str.lastIndexOf('.')) {
+      // Formato internacional: 1,231,287.21
+      str = str.replace(/,/g, '');
+    }
+    
+    // Intentar parsear como número
+    const num = parseFloat(str);
+    
+    // Si es NaN, devolver 0
+    if (isNaN(num)) {
+      console.log(`⚠️ No se pudo parsear número: "${value}" → "${str}"`);
+      return 0;
+    }
+    
+    return num;
+  }
+
   // NUEVA: Detección automática de formato de extracto
   private detectarFormatoExtracto(item: Record<string, unknown>): { importe: number, tipo: 'ingreso' | 'egreso' | 'neutro' } {
     // 1º Verificar si tiene campo 'importe' único
