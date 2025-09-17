@@ -234,7 +234,7 @@ export async function POST(request: NextRequest) {
         // INCLUIR LOS MOVIMIENTOS REALES CON RESULTADOS DEL MATCHING
         movements: extractoNormalizado.slice(0, 50).map((mov, index) => {
           // Buscar el resultado del matching para este movimiento
-          const matchResult = resultados.find(r => r.extractoItem.id === mov.id);
+          const matchResult = resultado?.resultados?.find((r: any) => r.extractoItem.id === mov.id);
           
           return {
             id: `mov_${index}`,
