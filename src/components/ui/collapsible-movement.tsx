@@ -161,88 +161,45 @@ export default function CollapsibleMovement({ movement, index }: CollapsibleMove
           </div>
         </div>
 
-        {/* Comparación de Matching */}
+        {/* Comparación Simple de Matching */}
         {movement.matchingDetails?.documentoInfo && (
           <div className="mt-4 pt-4 border-t border-gray-200">
             <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
               <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
-              Comparación de Matching
+              Comparación Simple
             </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Información del Banco */}
-              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                <h5 className="text-sm font-semibold text-blue-800 mb-2">📊 Movimiento Bancario</h5>
-                <div className="space-y-1 text-sm">
+            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+              <div className="grid grid-cols-2 gap-6 text-sm">
+                {/* Fechas */}
+                <div className="space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-blue-600">Fecha:</span>
-                    <span className="text-blue-900 font-medium">{movement.fecha}</span>
+                    <span className="text-gray-600 font-medium">Fecha Banco:</span>
+                    <span className="text-gray-900 font-semibold">{movement.fecha}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-blue-600">Monto:</span>
-                    <span className="text-blue-900 font-medium">${Math.abs(movement.monto).toFixed(2)}</span>
+                    <span className="text-gray-600 font-medium">Fecha Cuenta:</span>
+                    <span className="text-gray-900 font-semibold">{movement.matchingDetails.documentoInfo.fecha}</span>
+                  </div>
+                </div>
+
+                {/* Montos */}
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 font-medium">Monto Banco:</span>
+                    <span className="text-gray-900 font-semibold">${Math.abs(movement.monto).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-blue-600">Concepto:</span>
-                    <span className="text-blue-900 font-medium">{movement.concepto}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-blue-600">Tipo:</span>
-                    <span className="text-blue-900 font-medium">{movement.tipo}</span>
+                    <span className="text-gray-600 font-medium">Monto Cuenta:</span>
+                    <span className="text-gray-900 font-semibold">${movement.matchingDetails.documentoInfo.monto.toFixed(2)}</span>
                   </div>
                 </div>
               </div>
 
-              {/* Información del Documento */}
-              <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                <h5 className="text-sm font-semibold text-green-800 mb-2">
-                  📄 {movement.matchingDetails.tipoDocumento === 'venta' ? 'Venta' : 'Compra'}
-                </h5>
-                <div className="space-y-1 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-green-600">Fecha:</span>
-                    <span className="text-green-900 font-medium">{movement.matchingDetails.documentoInfo.fecha}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-green-600">Monto:</span>
-                    <span className="text-green-900 font-medium">${movement.matchingDetails.documentoInfo.monto.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-green-600">Cliente/Proveedor:</span>
-                    <span className="text-green-900 font-medium">{movement.matchingDetails.documentoInfo.cliente}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-green-600">Número:</span>
-                    <span className="text-green-900 font-medium">{movement.matchingDetails.documentoInfo.numero}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Análisis de Diferencias */}
-            <div className="mt-3 bg-gray-50 p-3 rounded-lg border border-gray-200">
-              <h6 className="text-xs font-semibold text-gray-700 mb-2">🔍 Análisis de Diferencias</h6>
-              <div className="grid grid-cols-2 gap-4 text-xs">
-                <div>
-                  <span className="text-gray-600">Diferencia de Monto:</span>
-                  <span className={`ml-1 font-medium ${
-                    Math.abs(movement.monto - movement.matchingDetails.documentoInfo.monto) < 1 
-                      ? 'text-green-600' 
-                      : 'text-red-600'
-                  }`}>
-                    ${Math.abs(movement.monto - movement.matchingDetails.documentoInfo.monto).toFixed(2)}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-gray-600">Score de Matching:</span>
-                  <span className={`ml-1 font-medium ${
-                    movement.matchingDetails.score > 0.8 
-                      ? 'text-green-600' 
-                      : movement.matchingDetails.score > 0.5 
-                        ? 'text-yellow-600' 
-                        : 'text-red-600'
-                  }`}>
-                    {(movement.matchingDetails.score * 100).toFixed(1)}%
-                  </span>
+              {/* Concepto del Banco */}
+              <div className="mt-4 pt-3 border-t border-gray-300">
+                <div className="flex justify-between">
+                  <span className="text-gray-600 font-medium">Concepto Banco:</span>
+                  <span className="text-gray-900 font-semibold">{movement.concepto}</span>
                 </div>
               </div>
             </div>
