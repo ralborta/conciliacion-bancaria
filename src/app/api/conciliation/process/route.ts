@@ -256,8 +256,8 @@ export async function POST(request: NextRequest) {
               documentoInfo: matchResult?.matchedWith ? {
                 fecha: matchResult.matchedWith.fechaEmision?.toISOString().split('T')[0] || 'N/A',
                 monto: matchResult.matchedWith.total || 0,
-                cliente: matchResult.matchedWith.cliente || matchResult.matchedWith.proveedor || 'N/A',
-                numero: matchResult.matchedWith.numero || 'N/A'
+                cliente: (matchResult.matchedWith as any).cliente || (matchResult.matchedWith as any).proveedor || 'N/A',
+                numero: (matchResult.matchedWith as any).numero || 'N/A'
               } : null
             }
           };
