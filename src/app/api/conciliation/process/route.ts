@@ -250,7 +250,7 @@ export async function POST(request: NextRequest) {
             // Información de matching para comparación
             matchingDetails: {
               matchedWith: matchResult?.matchedWith || null,
-              tipoDocumento: matchResult?.tipo || null,
+              tipoDocumento: (matchResult as any)?.tipo || null,
               score: matchResult?.score || 0,
               // Información del documento que se intentó matchear
               documentoInfo: matchResult?.matchedWith ? {
