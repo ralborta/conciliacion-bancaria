@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { DebugAsientos } from '@/components/conciliacion/DebugAsientos';
 import CollapsibleMovement from '@/components/ui/collapsible-movement';
+import { DownloadButton } from '@/components/ui/download-button';
 
 function ResultsContent() {
   const [data, setData] = useState<any>(null);
@@ -127,7 +128,17 @@ function ResultsContent() {
     
     return (
       <div className="p-6">
-        <h2 className="text-xl mb-4 text-yellow-600">⚠️ Resultados de Conciliación (Datos de Prueba)</h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl text-yellow-600">⚠️ Resultados de Conciliación (Datos de Prueba)</h2>
+          {sessionId && (
+            <DownloadButton 
+              sessionId={sessionId} 
+              variant="outline"
+              size="default"
+              className="border-yellow-600 text-yellow-600 hover:bg-yellow-50"
+            />
+          )}
+        </div>
         <div className="text-sm text-gray-500 mb-4">
           No se pudieron cargar los datos reales. Mostrando datos de prueba.
         </div>
@@ -206,7 +217,17 @@ function ResultsContent() {
   
   return (
     <div className="p-6">
-      <h2 className="text-xl mb-4 text-green-600">✅ Resultados de Conciliación</h2>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xl text-green-600">✅ Resultados de Conciliación</h2>
+        {sessionId && (
+          <DownloadButton 
+            sessionId={sessionId} 
+            variant="default"
+            size="default"
+            className="bg-green-600 hover:bg-green-700 text-white shadow-lg"
+          />
+        )}
+      </div>
       
       {/* 🚨 AGREGAR COMPONENTE DE DEBUG TEMPORALMENTE */}
       <DebugAsientos results={data} />

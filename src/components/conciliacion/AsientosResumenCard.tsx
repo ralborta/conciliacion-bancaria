@@ -81,3 +81,8 @@ export function AsientosResumenCard({ data }: AsientosResumenCardProps) {
 
 
 
+
+
+
+
+
