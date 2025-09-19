@@ -35,13 +35,18 @@ export async function GET(
       
       // Generar datos de prueba
       dataToExport = Array.from({ length: 10 }, (_, i) => ({
+        id: `mock_${i}`,
         extractoItem: {
+          id: `extracto_${i}`,
+          banco: 'Banco de Prueba',
+          cuenta: '1234567890',
           fechaOperacion: new Date(Date.now() - i * 24 * 60 * 60 * 1000),
           concepto: `Movimiento de prueba ${i + 1}`,
           importe: Math.random() * 10000 - 5000,
           referencia: `REF${String(i + 1).padStart(3, '0')}`
         },
-        status: Math.random() > 0.5 ? 'conciliado' : 'pendiente',
+        matchedWith: null,
+        status: Math.random() > 0.5 ? 'matched' : 'pending',
         score: Math.random(),
         reason: Math.random() > 0.5 ? 'Conciliación automática' : 'Pendiente de revisión'
       }))
