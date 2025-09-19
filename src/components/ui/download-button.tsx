@@ -23,16 +23,32 @@ export function DownloadButton({
   const handleDownload = async () => {
     if (!sessionId) {
       console.error('No sessionId provided for download');
+      alert('No se encontró el ID de sesión para la descarga.');
       return;
     }
 
     setIsDownloading(true);
     
     try {
+      console.log('Iniciando descarga para sessionId:', sessionId);
       const response = await fetch(`/api/conciliation/export/${sessionId}`);
       
+      console.log('Respuesta del servidor:', response.status, response.statusText);
+      
       if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Error del servidor:', errorData);
+        throw new Error(`Error ${response.status}: ${errorData.error || response.statusText}`);
+      }
+
+      // Verificar que la respuesta sea un archivo Excel
+      const contentType = response.headers.get('Content-Type');
+      console.log('Content-Type:', contentType);
+      
+      if (!contentType?.includes('spreadsheetml')) {
+        const text = await response.text();
+        console.error('Respuesta no es un archivo Excel:', text);
+        throw new Error('El servidor no devolvió un archivo Excel válido');
       }
 
       // Obtener el nombre del archivo desde el header Content-Disposition
@@ -41,12 +57,21 @@ export function DownloadButton({
         ? contentDisposition.split('filename=')[1]?.replace(/"/g, '') 
         : `conciliacion_${sessionId}.xlsx`;
 
+      console.log('Nombre del archivo:', filename);
+
       // Crear blob y descargar
       const blob = await response.blob();
+      console.log('Tamaño del blob:', blob.size, 'bytes');
+      
+      if (blob.size === 0) {
+        throw new Error('El archivo está vacío');
+      }
+      
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.download = filename;
+      link.style.display = 'none';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -58,7 +83,7 @@ export function DownloadButton({
       
     } catch (error) {
       console.error('Error downloading file:', error);
-      alert('Error al descargar el archivo. Por favor, inténtalo de nuevo.');
+      alert(`Error al descargar el archivo: ${error.message || 'Error desconocido'}`);
     } finally {
       setIsDownloading(false);
     }
