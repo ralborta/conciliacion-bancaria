@@ -83,7 +83,8 @@ export function DownloadButton({
       
     } catch (error) {
       console.error('Error downloading file:', error);
-      alert(`Error al descargar el archivo: ${error.message || 'Error desconocido'}`);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      alert(`Error al descargar el archivo: ${errorMessage}`);
     } finally {
       setIsDownloading(false);
     }
