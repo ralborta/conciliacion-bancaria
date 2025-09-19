@@ -136,17 +136,6 @@ export function LoginForm() {
               )}
             </Button>
           </form>
-
-          {/* Información de credenciales de prueba */}
-          <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <h3 className="text-sm font-medium text-blue-900 mb-2">
-              Credenciales de Prueba:
-            </h3>
-            <div className="text-sm text-blue-800 space-y-1">
-              <p><strong>Usuario:</strong> natero</p>
-              <p><strong>Contraseña:</strong> natero</p>
-            </div>
-          </div>
         </Card>
 
         {/* Footer */}
