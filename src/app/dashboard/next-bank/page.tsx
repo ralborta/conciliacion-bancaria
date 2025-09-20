@@ -118,17 +118,38 @@ export default function NextBankPage() {
       // Generar resultado final consolidado
       const finalResult = orchestrator.generateFinalResult()
       
-      // Guardar resultados consolidados
+      // 🎯 GENERAR RESULTADOS CONSOLIDADOS CORRECTAMENTE
       const consolidatedData = {
-        ...finalResult,
-        movements: results,
+        // Datos consolidados del orquestador
+        movements: finalResult.allMatched, // Todas las transacciones conciliadas
+        pendingMovements: finalResult.allPending, // Todas las pendientes
         totalMovimientos: finalResult.summary.totalMovimientos,
         conciliados: finalResult.summary.totalConciliados,
         pendientes: finalResult.summary.totalPendientes,
         porcentajeConciliado: finalResult.summary.matchRate,
+        
+        // Información multi-banco
         bancoActual: bancoNombre,
-        bancosProcesados: finalResult.summary.totalBanks
+        bancosProcesados: finalResult.summary.totalBanks,
+        bankSteps: finalResult.steps, // Pasos de cada banco
+        
+        // Asientos contables consolidados
+        asientosContables: finalResult.consolidatedAsientos,
+        
+        // Datos originales para compatibilidad
+        ventas: multiBankData.ventas || [],
+        compras: multiBankData.compras || [],
+        
+        // Metadatos
+        isMultiBank: true,
+        processedAt: new Date().toISOString(),
+        sessionType: 'multi-bank'
       }
+      
+      console.log('🎯 Datos consolidados generados:', consolidatedData)
+      console.log('📊 Total conciliados:', consolidatedData.conciliados)
+      console.log('📊 Total pendientes:', consolidatedData.pendientes)
+      console.log('📊 Bancos procesados:', consolidatedData.bancosProcesados)
       
       // Guardar en localStorage
       localStorage.setItem('conciliationData', JSON.stringify(consolidatedData))

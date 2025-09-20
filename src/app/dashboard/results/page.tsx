@@ -251,6 +251,45 @@ function ResultsContent() {
         </div>
       </div>
 
+      {/* Información Multi-Banco */}
+      {data.isMultiBank && data.bankSteps && (
+        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-6">
+          <h3 className="text-lg font-semibold text-purple-800 mb-3">
+            🏦 Proceso Multi-Banco
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {data.bankSteps.map((step: any, index: number) => (
+              <div key={index} className="bg-white border border-purple-200 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-medium text-purple-800">Banco #{index + 1}</h4>
+                  <span className="text-xs text-purple-600">
+                    {new Date(step.processedAt).toLocaleDateString()}
+                  </span>
+                </div>
+                <div className="text-sm text-gray-600">
+                  <div className="flex justify-between">
+                    <span>Conciliadas:</span>
+                    <span className="font-medium text-green-600">{step.matchedCount}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Pendientes:</span>
+                    <span className="font-medium text-orange-600">{step.pendingCount}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Ventas:</span>
+                    <span className="font-medium">{step.ventasConciliadas}/{step.totalVentas}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Compras:</span>
+                    <span className="font-medium">{step.comprasConciliadas}/{step.totalCompras}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Botón para agregar otro banco */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
         <div className="flex items-center justify-between">
