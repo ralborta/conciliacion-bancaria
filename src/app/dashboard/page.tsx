@@ -26,6 +26,21 @@ const PERIODOS = [
   'Julio 2024'
 ]
 
+// Función para convertir archivo a base64
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.readAsDataURL(file)
+    reader.onload = () => {
+      const base64 = reader.result as string
+      // Remover el prefijo "data:application/octet-stream;base64,"
+      const base64Data = base64.split(',')[1]
+      resolve(base64Data)
+    }
+    reader.onerror = error => reject(error)
+  })
+}
+
 export default function DashboardPage() {
   const router = useRouter()
   const [files, setFiles] = useState<{
@@ -163,6 +178,17 @@ export default function DashboardPage() {
         console.log("💾 Guardando datos en localStorage:", result.data);
         localStorage.setItem('conciliationData', JSON.stringify(result.data));
         localStorage.setItem('currentSessionId', result.sessionId);
+        
+        // 💾 GUARDAR ARCHIVOS BASE PARA MULTI-BANCO
+        console.log("💾 Guardando archivos base para multi-banco");
+        if (files.ventas?.file) {
+          const ventasBase64 = await fileToBase64(files.ventas.file);
+          localStorage.setItem('ventasFile', ventasBase64);
+        }
+        if (files.compras?.file) {
+          const comprasBase64 = await fileToBase64(files.compras.file);
+          localStorage.setItem('comprasFile', comprasBase64);
+        }
       }
       
       // PASO 4: Completar

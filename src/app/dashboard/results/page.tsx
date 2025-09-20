@@ -250,6 +250,32 @@ function ResultsContent() {
           <div className="text-2xl font-bold text-blue-600">{data.porcentajeConciliado || 0}%</div>
         </div>
       </div>
+
+      {/* Botón para agregar otro banco */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-blue-800 mb-1">
+              🏦 ¿Agregar Otro Banco?
+            </h3>
+            <p className="text-blue-600 text-sm">
+              Procesa otro banco con las transacciones pendientes de este resultado
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              // Guardar datos actuales para el siguiente banco
+              localStorage.setItem('multiBankData', JSON.stringify(data));
+              localStorage.setItem('multiBankSessionId', sessionId || '');
+              // Redirigir a la página de siguiente banco
+              window.location.href = '/dashboard/next-bank';
+            }}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+          >
+            Agregar Banco
+          </button>
+        </div>
+      </div>
       
       {data.movements && data.movements.length > 0 && (
         <div className="bg-white rounded shadow p-4">
