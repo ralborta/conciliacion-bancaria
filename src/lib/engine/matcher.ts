@@ -130,9 +130,19 @@ export class ConciliationEngine {
       const buffer = await file.arrayBuffer()
       const extractoData = this.smartExtractoParser.parseExtracto(buffer)
       
-      // Marcar como datos de Excel para el normalizador
-      return extractoData.map(item => ({
-        ...item,
+      // Convertir al formato ExtractoCanon directamente
+      return extractoData.map((item, index) => ({
+        id: `extracto_${index}`,
+        banco: 'Detectado automáticamente',
+        cuenta: item.cuenta || '',
+        fechaOperacion: item.fecha,
+        fechaValor: item.fechaValor,
+        concepto: item.concepto,
+        importe: item.importe,
+        saldo: item.saldo,
+        cuitContraparte: undefined,
+        cbuCvuContraparte: undefined,
+        referencia: undefined,
         _isExcelData: true
       }))
     }
@@ -207,8 +217,11 @@ export class ConciliationEngine {
     // Si es un archivo Excel, usar el parser inteligente
     if (data.length > 0 && data[0]._isExcelData) {
       console.log('📊 Usando parser inteligente para extracto Excel')
-      // El parser inteligente ya devuelve el formato correcto
-      return data as ExtractoCanon[]
+      // El parser inteligente ya devuelve el formato correcto, solo actualizar el banco
+      return data.map(item => ({
+        ...item,
+        banco: banco
+      })) as ExtractoCanon[]
     }
     
     // Fallback al método original para CSV
