@@ -144,10 +144,10 @@ export default function NextBankPage() {
 
       await new Promise(resolve => setTimeout(resolve, 1000))
 
-      // PASO 3: Llamar a API
+      // PASO 3: Llamar a API Multi-Banco
       setCurrentStep(2)
       setProgress(75)
-      setStatus('Ejecutando conciliación...')
+      setStatus('Ejecutando conciliación multi-banco...')
       setProcessingSteps(prev => 
         prev.map((step, index) => ({
           ...step,
@@ -155,11 +155,23 @@ export default function NextBankPage() {
         }))
       )
 
-      console.log('Llamando a API...')
+      // Preparar datos para API multi-banco
+      const multiBankFormData = new FormData()
+      multiBankFormData.append('extracto', extractoFile.file!)
+      multiBankFormData.append('banco', banco)
+      multiBankFormData.append('periodo', periodo)
+      multiBankFormData.append('previousResults', JSON.stringify(multiBankData))
+
+      console.log('Llamando a API multi-banco...', {
+        extracto: extractoFile.file?.name,
+        banco,
+        previousConciliados: multiBankData?.conciliados
+      })
+      
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://conciliacion-bancaria-production.up.railway.app'
-      const response = await fetch(`${apiUrl}/api/conciliation/process`, {
+      const response = await fetch(`${apiUrl}/api/conciliation/multibank`, {
         method: 'POST',
-        body: formData
+        body: multiBankFormData
       })
 
       console.log('Response status:', response.status)
