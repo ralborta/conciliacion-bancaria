@@ -3,6 +3,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { ConciliationEngine } from '@/lib/engine/matcher'
+import { SmartVentasComprasParser } from '@/lib/parsers/smartVentasComprasParser'
+import { SmartExtractoParser } from '@/lib/parsers/smartExtractoParser'
 
 export async function POST(req: NextRequest) {
   try {
@@ -90,13 +92,16 @@ export async function POST(req: NextRequest) {
     const engine = new ConciliationEngine()
     
     // Parsear archivos con el parser inteligente
+    const ventasComprasParser = new SmartVentasComprasParser()
+    const extractoParser = new SmartExtractoParser()
+    
     const ventasBuffer = await ventasFile.arrayBuffer()
     const comprasBuffer = await comprasFile.arrayBuffer()
     const extractoBuffer = await extractoFile.arrayBuffer()
     
-    const ventasData = engine.parseVentas(ventasBuffer)
-    const comprasData = engine.parseCompras(comprasBuffer)
-    const extractoData = engine.parseExtracto(extractoBuffer)
+    const ventasData = ventasComprasParser.parseVentas(ventasBuffer)
+    const comprasData = ventasComprasParser.parseCompras(comprasBuffer)
+    const extractoData = extractoParser.parseExtracto(extractoBuffer)
     
     // Normalizar datos
     const ventasNormalizadas = engine.normalizeVentas(ventasData)
