@@ -290,15 +290,101 @@ function ResultsContent() {
         </div>
       )}
 
-      {/* Botón para agregar otro banco */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+      {/* Mensaje cuando no hay coincidencias */}
+      {data.porcentajeConciliado === 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-6">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                <span className="text-red-600 text-lg">⚠️</span>
+              </div>
+            </div>
+            <div className="ml-4 flex-1">
+              <h3 className="text-lg font-semibold text-red-800 mb-2">
+                No se encontraron coincidencias
+              </h3>
+              <p className="text-red-700 mb-4">
+                {data.isMultiBank 
+                  ? "Este banco no concilió transacciones adicionales. Las transacciones pendientes pueden coincidir con otro banco."
+                  : "No se encontraron coincidencias entre las transacciones y el extracto bancario. Esto puede deberse a diferencias en fechas, montos o conceptos."
+                }
+              </p>
+              <div className="bg-red-100 border border-red-200 rounded-lg p-3 mb-4">
+                <h4 className="font-medium text-red-800 mb-2">💡 Sugerencias:</h4>
+                <ul className="text-sm text-red-700 space-y-1">
+                  <li>• Verificar que las fechas coincidan con el período del extracto</li>
+                  <li>• Revisar que los montos sean exactos (sin diferencias de centavos)</li>
+                  <li>• Comprobar que los conceptos o referencias sean similares</li>
+                  <li>• Probar con otro banco que pueda tener las transacciones</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mensaje cuando hay pocas coincidencias */}
+      {data.porcentajeConciliado > 0 && data.porcentajeConciliado < 30 && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-6">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <div className="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center">
+                <span className="text-yellow-600 text-lg">⚠️</span>
+              </div>
+            </div>
+            <div className="ml-4 flex-1">
+              <h3 className="text-lg font-semibold text-yellow-800 mb-2">
+                Pocas coincidencias encontradas
+              </h3>
+              <p className="text-yellow-700 mb-4">
+                Solo se concilió el {data.porcentajeConciliado.toFixed(1)}% de las transacciones. 
+                {data.isMultiBank 
+                  ? " Puedes probar con otro banco para mejorar la conciliación."
+                  : " Considera revisar los datos o probar con otro banco."
+                }
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Botón para agregar otro banco - Siempre visible y destacado */}
+      <div className={`border rounded-lg p-4 mb-6 ${
+        data.porcentajeConciliado === 0 
+          ? 'bg-red-50 border-red-200' 
+          : data.porcentajeConciliado < 30 
+          ? 'bg-yellow-50 border-yellow-200'
+          : 'bg-blue-50 border-blue-200'
+      }`}>
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-blue-800 mb-1">
-              🏦 ¿Agregar Otro Banco?
+            <h3 className={`text-lg font-semibold mb-1 ${
+              data.porcentajeConciliado === 0 
+                ? 'text-red-800' 
+                : data.porcentajeConciliado < 30 
+                ? 'text-yellow-800'
+                : 'text-blue-800'
+            }`}>
+              {data.porcentajeConciliado === 0 
+                ? '🚨 ¿Probar con Otro Banco?' 
+                : data.porcentajeConciliado < 30
+                ? '⚠️ ¿Mejorar con Otro Banco?'
+                : '🏦 ¿Agregar Otro Banco?'
+              }
             </h3>
-            <p className="text-blue-600 text-sm">
-              Procesa otro banco con las transacciones pendientes de este resultado
+            <p className={`text-sm ${
+              data.porcentajeConciliado === 0 
+                ? 'text-red-600' 
+                : data.porcentajeConciliado < 30 
+                ? 'text-yellow-600'
+                : 'text-blue-600'
+            }`}>
+              {data.porcentajeConciliado === 0 
+                ? 'Procesa otro banco que pueda tener las transacciones pendientes'
+                : data.porcentajeConciliado < 30
+                ? 'Procesa otro banco para conciliar más transacciones pendientes'
+                : 'Procesa otro banco con las transacciones pendientes de este resultado'
+              }
             </p>
           </div>
           <button
@@ -309,9 +395,20 @@ function ResultsContent() {
               // Redirigir a la página de siguiente banco
               window.location.href = '/dashboard/next-bank';
             }}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+            className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+              data.porcentajeConciliado === 0 
+                ? 'bg-red-600 hover:bg-red-700 text-white' 
+                : data.porcentajeConciliado < 30 
+                ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                : 'bg-blue-600 hover:bg-blue-700 text-white'
+            }`}
           >
-            Agregar Banco
+            {data.porcentajeConciliado === 0 
+              ? 'Probar Otro Banco' 
+              : data.porcentajeConciliado < 30
+              ? 'Mejorar Conciliación'
+              : 'Agregar Banco'
+            }
           </button>
         </div>
       </div>

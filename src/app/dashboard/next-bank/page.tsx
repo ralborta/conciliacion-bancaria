@@ -26,6 +26,10 @@ export default function NextBankPage() {
   const [orchestrator] = useState(() => new MultiBankReconciliationOrchestrator())
   const [multiBankData, setMultiBankData] = useState<any>(null)
   const [bankCount, setBankCount] = useState(1)
+  
+  // Estado para mostrar resultados consolidados
+  const [showResults, setShowResults] = useState(false)
+  const [consolidatedResults, setConsolidatedResults] = useState<any>(null)
 
   const bancoValido = banco !== 'Otro' || (banco === 'Otro' && bancoPersonalizado.trim() !== '')
   const puedeProcesar = extractoFile && bancoValido && periodo
