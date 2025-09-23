@@ -241,7 +241,7 @@ export async function POST(req: NextRequest) {
       porcentajeConciliado: consolidatedResult.porcentajeConciliado,
       bancosProcesados: extractos.length,
       mejorBanco: getBestBank(consolidatedResult.bankSteps),
-      distribucionPorBanco: consolidatedResult.bankSteps.map(step => ({
+      distribucionPorBanco: consolidatedResult.bankSteps.map((step: any) => ({
         banco: step.banco,
         conciliadas: step.conciliadosEnEsteBanco,
         porcentaje: consolidatedResult.totalMovimientos > 0 
