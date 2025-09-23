@@ -262,11 +262,28 @@ export class ArgentinaExcelParser {
       if (value.includes('/')) {
         const parts = value.split('/');
         if (parts.length === 3) {
-          return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+          const day = parseInt(parts[0], 10);
+          const month = parseInt(parts[1], 10) - 1;  // Restar 1 para índice de mes (0-11)
+          const year = parseInt(parts[2], 10);
+          
+          // Validar rangos
+          if (year >= 1900 && year <= 2100 && month >= 0 && month <= 11 && day >= 1 && day <= 31) {
+            const date = new Date(year, month, day);
+            if (!isNaN(date.getTime())) {
+              console.log(`✅ Fecha Excel parseada: ${value} -> ${date.toLocaleDateString('es-AR')}`);
+              return date;
+            }
+          } else {
+            console.warn(`⚠️ Fecha Excel fuera de rango: ${value} (day: ${day}, month: ${month + 1}, year: ${year})`);
+          }
         }
       }
-      return new Date(value);
+      const date = new Date(value);
+      if (!isNaN(date.getTime())) {
+        return date;
+      }
     }
+    console.warn(`⚠️ No se pudo parsear fecha Excel: ${value}, usando fecha actual`);
     return new Date();
   }
   

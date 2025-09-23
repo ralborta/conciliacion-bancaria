@@ -537,15 +537,18 @@ export class MultiBankReconciliationOrchestrator {
           const parts = cleanValue.split('/')
           if (parts.length === 3) {
             const day = parseInt(parts[0], 10)
-            const month = parseInt(parts[1], 10) - 1
+            const month = parseInt(parts[1], 10) - 1  // Restar 1 para índice de mes (0-11)
             const year = parseInt(parts[2], 10)
             
-            // Validar rangos
+            // Validar rangos - CORREGIDO: month ya está en rango 0-11
             if (year >= 1900 && year <= 2100 && month >= 0 && month <= 11 && day >= 1 && day <= 31) {
               const date = new Date(year, month, day)
               if (!isNaN(date.getTime())) {
+                console.log(`✅ Fecha parseada correctamente: ${cleanValue} -> ${date.toLocaleDateString('es-AR')}`)
                 return date
               }
+            } else {
+              console.warn(`⚠️ Fecha fuera de rango: ${cleanValue} (day: ${day}, month: ${month + 1}, year: ${year})`)
             }
           }
         }
@@ -554,6 +557,7 @@ export class MultiBankReconciliationOrchestrator {
         if (cleanValue.includes('-')) {
           const date = new Date(cleanValue)
           if (!isNaN(date.getTime())) {
+            console.log(`✅ Fecha ISO parseada: ${cleanValue} -> ${date.toLocaleDateString('es-AR')}`)
             return date
           }
         }
@@ -561,6 +565,7 @@ export class MultiBankReconciliationOrchestrator {
         // Intentar parsear como fecha estándar
         const date = new Date(cleanValue)
         if (!isNaN(date.getTime())) {
+          console.log(`✅ Fecha estándar parseada: ${cleanValue} -> ${date.toLocaleDateString('es-AR')}`)
           return date
         }
       }
@@ -574,6 +579,7 @@ export class MultiBankReconciliationOrchestrator {
       }
       
       // Fallback: fecha actual
+      console.warn(`⚠️ No se pudo parsear fecha: ${dateValue}, usando fecha actual`)
       return new Date()
     } catch (error) {
       console.warn('Error parsing date:', dateValue, error)

@@ -14,17 +14,29 @@ export class ConciliationEngine {
         const parts = dateValue.split('/');
         if (parts.length === 3) {
           const day = parseInt(parts[0], 10);
-          const month = parseInt(parts[1], 10) - 1;
+          const month = parseInt(parts[1], 10) - 1;  // Restar 1 para índice de mes (0-11)
           const year = parseInt(parts[2], 10);
-          if (year > 1900 && year < 2100 && month >= 0 && month < 12 && day > 0 && day <= 31) {
-            return new Date(year, month, day);
+          // CORREGIDO: Validación de rangos correcta
+          if (year >= 1900 && year <= 2100 && month >= 0 && month <= 11 && day >= 1 && day <= 31) {
+            const date = new Date(year, month, day);
+            if (!isNaN(date.getTime())) {
+              console.log(`✅ Fecha parseada en matcher: ${dateValue} -> ${date.toLocaleDateString('es-AR')}`);
+              return date;
+            }
+          } else {
+            console.warn(`⚠️ Fecha fuera de rango en matcher: ${dateValue} (day: ${day}, month: ${month + 1}, year: ${year})`);
           }
         }
       }
       
       // Fallback al comportamiento original
-      return new Date(String(dateValue));
-    } catch {
+      const date = new Date(String(dateValue));
+      if (!isNaN(date.getTime())) {
+        return date;
+      }
+      return new Date(); // Fecha actual como fallback seguro
+    } catch (error) {
+      console.warn('Error parsing date in matcher:', dateValue, error);
       return new Date(); // Fecha actual como fallback seguro
     }
   }
