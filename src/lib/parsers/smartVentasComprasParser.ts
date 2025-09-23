@@ -339,6 +339,7 @@ export class SmartVentasComprasParser {
         return new Date();
       }
       
+      console.log(`✅ Fecha Excel convertida: ${excelDate} -> ${result.toLocaleDateString('es-AR')}`);
       return result;
     } catch (error) {
       console.error(`❌ Error convirtiendo fecha Excel ${excelDate}:`, error);

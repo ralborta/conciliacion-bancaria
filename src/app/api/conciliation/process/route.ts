@@ -3,6 +3,7 @@ import { ConciliationEngine } from '@/lib/engine/matcher'
 import { memoryStorage } from '@/lib/storage/memory'
 import { ProcessOptions, ConciliationStats } from '@/lib/types/conciliacion'
 import { ArgentinaExcelParser } from '@/lib/parsers/excelParser'
+import { SmartExtractoParser } from '@/lib/parsers/smartExtractoParser'
 import { AsientosGenerator } from '@/lib/engine/asientosGenerator'
 
 // ===== DEBUG: POR QUÉ NO SALEN RESULTADOS =====
@@ -381,28 +382,29 @@ async function procesarConciliacionConDebug(ventasFile: File, comprasFile: File,
     const engine = new ConciliationEngine();
     const options: ProcessOptions = { banco, periodo };
     
-    // Parsear archivos con el nuevo parser AFIP
-    console.log("🔄 Parseando archivos con parser AFIP...");
+    // Parsear archivos con parser híbrido (ArgentinaExcelParser + SmartExtractoParser)
+    console.log("🔄 Parseando archivos con parser híbrido...");
     
-    const parser = new ArgentinaExcelParser();
+    const afipParser = new ArgentinaExcelParser();
+    const extractoParser = new SmartExtractoParser();
     
-    // Parsear con el nuevo parser
+    // Parsear con el parser híbrido
     const ventasBuffer = await ventasFile.arrayBuffer();
     const comprasBuffer = await comprasFile.arrayBuffer();
     const extractoBuffer = await extractoFile.arrayBuffer();
     
-    const ventasData = parser.parseAFIPFile(ventasBuffer, 'ventas');
-    const comprasData = parser.parseAFIPFile(comprasBuffer, 'compras');
-    const extractoData = parser.parseBankStatement(extractoBuffer);
+    const ventasData = afipParser.parseAFIPFile(ventasBuffer, 'ventas');
+    const comprasData = afipParser.parseAFIPFile(comprasBuffer, 'compras');
+    const extractoData = extractoParser.parseExtracto(extractoBuffer);
     
-    console.log("✅ Archivos parseados con parser AFIP:", {
+    console.log("✅ Archivos parseados con parser híbrido:", {
       ventas: ventasData?.length || 0,
       compras: comprasData?.length || 0,
       extracto: extractoData?.length || 0
     });
     
-    // PASO 2: Los datos ya están normalizados por el parser AFIP
-    console.log("PASO 2 - Datos ya normalizados por parser AFIP");
+    // PASO 2: Los datos ya están normalizados por el parser híbrido
+    console.log("PASO 2 - Datos ya normalizados por parser híbrido");
     
     // Convertir datos del parser a formato esperado por el motor
     const ventasNormalizadas = ventasData.map((v, index) => ({
