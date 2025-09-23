@@ -277,8 +277,8 @@ export async function POST(req: NextRequest) {
 // ============================================
 
 function getUnmatchedTransactions(result: any) {
-  const ventasPendientes = []
-  const comprasPendientes = []
+  const ventasPendientes: any[] = []
+  const comprasPendientes: any[] = []
   
   // Opción 1: Si tenemos los arrays originales de ventas/compras
   if (result.ventas && result.compras) {
