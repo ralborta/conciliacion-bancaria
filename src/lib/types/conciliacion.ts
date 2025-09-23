@@ -134,37 +134,89 @@ export interface BancoConfig {
 
 export const BANCOS: BancoConfig[] = [
   {
-    id: 'santander',
-    nombre: 'Santander',
-    formatos: ['.csv', '.xlsx'],
-    campos: {
-      fecha: 'fecha_operacion',
-      concepto: 'concepto',
-      importe: 'importe',
-      referencia: 'referencia',
-      cuit: 'cuit_contraparte',
-      cbu: 'cbu_contraparte'
-    }
-  },
-  {
-    id: 'bbva',
-    nombre: 'BBVA',
+    id: 'nacion',
+    nombre: 'Banco de la Nación Argentina',
     formatos: ['.csv', '.xlsx'],
     campos: {
       fecha: 'fecha',
-      concepto: 'descripcion',
-      importe: 'monto',
-      referencia: 'ref',
+      concepto: 'concepto',
+      importe: 'importe',
+      referencia: 'referencia',
+      cuit: 'cuit',
+      cbu: 'cbu'
+    }
+  },
+  {
+    id: 'provincia-ba',
+    nombre: 'Banco de la Provincia de Buenos Aires',
+    formatos: ['.csv', '.xlsx'],
+    campos: {
+      fecha: 'fecha',
+      concepto: 'concepto',
+      importe: 'importe',
+      referencia: 'referencia',
       cuit: 'cuit',
       cbu: 'cbu'
     }
   },
   {
     id: 'galicia',
-    nombre: 'Galicia',
+    nombre: 'Banco de Galicia y Buenos Aires',
     formatos: ['.csv', '.xlsx'],
     campos: {
-      fecha: 'fecha_op',
+      fecha: 'fecha',
+      concepto: 'concepto',
+      importe: 'importe',
+      referencia: 'referencia',
+      cuit: 'cuit',
+      cbu: 'cbu'
+    }
+  },
+  {
+    id: 'santander',
+    nombre: 'Banco Santander Argentina',
+    formatos: ['.csv', '.xlsx'],
+    campos: {
+      fecha: 'fecha',
+      concepto: 'concepto',
+      importe: 'importe',
+      referencia: 'referencia',
+      cuit: 'cuit',
+      cbu: 'cbu'
+    }
+  },
+  {
+    id: 'bbva',
+    nombre: 'BBVA Argentina',
+    formatos: ['.csv', '.xlsx'],
+    campos: {
+      fecha: 'fecha',
+      concepto: 'concepto',
+      importe: 'importe',
+      referencia: 'referencia',
+      cuit: 'cuit',
+      cbu: 'cbu'
+    }
+  },
+  {
+    id: 'macro',
+    nombre: 'Banco Macro',
+    formatos: ['.csv', '.xlsx'],
+    campos: {
+      fecha: 'fecha',
+      concepto: 'concepto',
+      importe: 'importe',
+      referencia: 'referencia',
+      cuit: 'cuit',
+      cbu: 'cbu'
+    }
+  },
+  {
+    id: 'credicoop',
+    nombre: 'Banco Credicoop Cooperativo',
+    formatos: ['.csv', '.xlsx'],
+    campos: {
+      fecha: 'fecha',
       concepto: 'concepto',
       importe: 'importe',
       referencia: 'referencia',
@@ -174,20 +226,7 @@ export const BANCOS: BancoConfig[] = [
   },
   {
     id: 'icbc',
-    nombre: 'ICBC',
-    formatos: ['.csv', '.xlsx'],
-    campos: {
-      fecha: 'fecha_operacion',
-      concepto: 'concepto',
-      importe: 'importe',
-      referencia: 'referencia',
-      cuit: 'cuit_contraparte',
-      cbu: 'cbu_contraparte'
-    }
-  },
-  {
-    id: 'macro',
-    nombre: 'Macro',
+    nombre: 'ICBC Argentina',
     formatos: ['.csv', '.xlsx'],
     campos: {
       fecha: 'fecha',
@@ -199,11 +238,154 @@ export const BANCOS: BancoConfig[] = [
     }
   },
   {
-    id: 'hsbc',
-    nombre: 'HSBC',
+    id: 'ciudad-ba',
+    nombre: 'Banco de la Ciudad de Buenos Aires',
     formatos: ['.csv', '.xlsx'],
     campos: {
-      fecha: 'fecha_operacion',
+      fecha: 'fecha',
+      concepto: 'concepto',
+      importe: 'importe',
+      referencia: 'referencia',
+      cuit: 'cuit',
+      cbu: 'cbu'
+    }
+  },
+  {
+    id: 'patagonia',
+    nombre: 'Banco Patagonia',
+    formatos: ['.csv', '.xlsx'],
+    campos: {
+      fecha: 'fecha',
+      concepto: 'concepto',
+      importe: 'importe',
+      referencia: 'referencia',
+      cuit: 'cuit',
+      cbu: 'cbu'
+    }
+  },
+  {
+    id: 'supervielle',
+    nombre: 'Banco Supervielle',
+    formatos: ['.csv', '.xlsx'],
+    campos: {
+      fecha: 'fecha',
+      concepto: 'concepto',
+      importe: 'importe',
+      referencia: 'referencia',
+      cuit: 'cuit',
+      cbu: 'cbu'
+    }
+  },
+  {
+    id: 'bancor',
+    nombre: 'Banco de la Provincia de Córdoba (Bancor)',
+    formatos: ['.csv', '.xlsx'],
+    campos: {
+      fecha: 'fecha',
+      concepto: 'concepto',
+      importe: 'importe',
+      referencia: 'referencia',
+      cuit: 'cuit',
+      cbu: 'cbu'
+    }
+  },
+  {
+    id: 'hipotecario',
+    nombre: 'Banco Hipotecario',
+    formatos: ['.csv', '.xlsx'],
+    campos: {
+      fecha: 'fecha',
+      concepto: 'concepto',
+      importe: 'importe',
+      referencia: 'referencia',
+      cuit: 'cuit',
+      cbu: 'cbu'
+    }
+  },
+  {
+    id: 'itau',
+    nombre: 'Banco Itaú Argentina',
+    formatos: ['.csv', '.xlsx'],
+    campos: {
+      fecha: 'fecha',
+      concepto: 'concepto',
+      importe: 'importe',
+      referencia: 'referencia',
+      cuit: 'cuit',
+      cbu: 'cbu'
+    }
+  },
+  {
+    id: 'comafi',
+    nombre: 'Banco Comafi',
+    formatos: ['.csv', '.xlsx'],
+    campos: {
+      fecha: 'fecha',
+      concepto: 'concepto',
+      importe: 'importe',
+      referencia: 'referencia',
+      cuit: 'cuit',
+      cbu: 'cbu'
+    }
+  },
+  {
+    id: 'bind',
+    nombre: 'Banco Industrial (BIND)',
+    formatos: ['.csv', '.xlsx'],
+    campos: {
+      fecha: 'fecha',
+      concepto: 'concepto',
+      importe: 'importe',
+      referencia: 'referencia',
+      cuit: 'cuit',
+      cbu: 'cbu'
+    }
+  },
+  {
+    id: 'valores',
+    nombre: 'Banco de Valores',
+    formatos: ['.csv', '.xlsx'],
+    campos: {
+      fecha: 'fecha',
+      concepto: 'concepto',
+      importe: 'importe',
+      referencia: 'referencia',
+      cuit: 'cuit',
+      cbu: 'cbu'
+    }
+  },
+  {
+    id: 'bpn',
+    nombre: 'Banco Provincia de Neuquén (BPN)',
+    formatos: ['.csv', '.xlsx'],
+    campos: {
+      fecha: 'fecha',
+      concepto: 'concepto',
+      importe: 'importe',
+      referencia: 'referencia',
+      cuit: 'cuit',
+      cbu: 'cbu'
+    }
+  },
+  {
+    id: 'citibank',
+    nombre: 'Citibank N.A. (Sucursal Argentina)',
+    formatos: ['.csv', '.xlsx'],
+    campos: {
+      fecha: 'fecha',
+      concepto: 'concepto',
+      importe: 'importe',
+      referencia: 'referencia',
+      cuit: 'cuit',
+      cbu: 'cbu'
+    }
+  },
+  {
+    id: 'otros',
+    nombre: 'Otros',
+    formatos: ['.csv', '.xlsx'],
+    campos: {
+      fecha: 'fecha',
       concepto: 'concepto',
       importe: 'importe',
       referencia: 'referencia',

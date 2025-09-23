@@ -11,13 +11,26 @@ import { UploadedFile, ProcessingStep } from '@/lib/types/conciliacion'
 import { RotateCcw, Zap } from 'lucide-react'
 
 const BANCOS = [
-  'Banco Provincia',
-  'Santander',
-  'BBVA', 
-  'Galicia',
-  'ICBC',
-  'Macro',
-  'HSBC'
+  'Banco de la Nación Argentina',
+  'Banco de la Provincia de Buenos Aires',
+  'Banco de Galicia y Buenos Aires',
+  'Banco Santander Argentina',
+  'BBVA Argentina',
+  'Banco Macro',
+  'Banco Credicoop Cooperativo',
+  'ICBC Argentina',
+  'Banco de la Ciudad de Buenos Aires',
+  'Banco Patagonia',
+  'Banco Supervielle',
+  'Banco de la Provincia de Córdoba (Bancor)',
+  'Banco Hipotecario',
+  'Banco Itaú Argentina',
+  'Banco Comafi',
+  'Banco Industrial (BIND)',
+  'Banco de Valores',
+  'Banco Provincia de Neuquén (BPN)',
+  'Citibank N.A. (Sucursal Argentina)',
+  'Otros'
 ]
 
 const PERIODOS = [
