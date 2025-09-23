@@ -59,8 +59,13 @@ export default function NextBankPage() {
             const ventasFileObj = new File([ventasBlob], 'ventas.csv', { type: 'text/csv' })
             const comprasFileObj = new File([comprasBlob], 'compras.csv', { type: 'text/csv' })
             
-            await orchestrator.initialize(ventasFileObj, comprasFileObj)
-            console.log('✅ Orquestador inicializado correctamente')
+            // NO reiniciar el orquestador, solo inicializar si es la primera vez
+            if (!orchestrator.isInitialized()) {
+              await orchestrator.initialize(ventasFileObj, comprasFileObj)
+              console.log('✅ Orquestador inicializado correctamente')
+            } else {
+              console.log('✅ Orquestador ya inicializado, continuando...')
+            }
             
             // Cargar datos del banco anterior en el orquestador
             if (data.movements) {

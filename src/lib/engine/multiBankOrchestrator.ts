@@ -49,6 +49,7 @@ export class MultiBankReconciliationOrchestrator {
   // Datos parseados una sola vez
   private ventasData: VentaCanon[] = []
   private comprasData: CompraCanon[] = []
+  private initialized: boolean = false
   
   // Parsers inteligentes
   private smartVentasComprasParser: SmartVentasComprasParser
@@ -87,6 +88,15 @@ export class MultiBankReconciliationOrchestrator {
     console.log(`📊 Compras parseadas: ${this.comprasData.length}`)
     console.log(`📊 Archivos base guardados para procesamiento secuencial`)
     console.log(`📊 Estado reseteado para nuevo proceso multi-banco`)
+    
+    this.initialized = true
+  }
+
+  /**
+   * Verifica si el orquestador ya está inicializado
+   */
+  isInitialized(): boolean {
+    return this.initialized
   }
 
   /**
