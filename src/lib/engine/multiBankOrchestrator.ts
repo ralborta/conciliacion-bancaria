@@ -46,6 +46,10 @@ export class MultiBankReconciliationOrchestrator {
   private ventasFile: File | null = null
   private comprasFile: File | null = null
   
+  // Datos parseados una sola vez
+  private ventasData: VentaCanon[] = []
+  private comprasData: CompraCanon[] = []
+  
   // Parsers inteligentes
   private smartVentasComprasParser: SmartVentasComprasParser
   private smartExtractoParser: SmartExtractoParser
@@ -74,6 +78,13 @@ export class MultiBankReconciliationOrchestrator {
     this.conciliadasVentas.clear()
     this.conciliadasCompras.clear()
     
+    // Parsear archivos base UNA SOLA VEZ
+    console.log(`📊 Parseando archivos base...`)
+    this.ventasData = await this.parseVentas(ventasFile)
+    this.comprasData = await this.parseCompras(comprasFile)
+    
+    console.log(`📊 Ventas parseadas: ${this.ventasData.length}`)
+    console.log(`📊 Compras parseadas: ${this.comprasData.length}`)
     console.log(`📊 Archivos base guardados para procesamiento secuencial`)
     console.log(`📊 Estado reseteado para nuevo proceso multi-banco`)
   }
@@ -96,21 +107,18 @@ export class MultiBankReconciliationOrchestrator {
     console.log(`📊 Ventas ya conciliadas: ${this.conciliadasVentas.size}`)
     console.log(`📊 Compras ya conciliadas: ${this.conciliadasCompras.size}`)
 
-    // 1. Parsear archivos originales
-    const ventasOriginales = await this.parseVentas(this.ventasFile)
-    const comprasOriginales = await this.parseCompras(this.comprasFile)
-    
-    console.log(`📊 Ventas totales: ${ventasOriginales.length}`)
-    console.log(`📊 Compras totales: ${comprasOriginales.length}`)
+    // 1. Usar datos ya parseados (NO re-parsear)
+    console.log(`📊 Ventas totales: ${this.ventasData.length}`)
+    console.log(`📊 Compras totales: ${this.comprasData.length}`)
     
     // Validar que hay datos para procesar
-    if (ventasOriginales.length === 0 && comprasOriginales.length === 0) {
+    if (this.ventasData.length === 0 && this.comprasData.length === 0) {
       throw new Error('No se encontraron datos válidos en los archivos de ventas y compras')
     }
 
     // 2. Filtrar solo las no conciliadas
-    const ventasPendientes = ventasOriginales.filter(v => !this.conciliadasVentas.has(v.id))
-    const comprasPendientes = comprasOriginales.filter(c => !this.conciliadasCompras.has(c.id))
+    const ventasPendientes = this.ventasData.filter(v => !this.conciliadasVentas.has(v.id))
+    const comprasPendientes = this.comprasData.filter(c => !this.conciliadasCompras.has(c.id))
     
     console.log(`📊 Ventas pendientes: ${ventasPendientes.length}`)
     console.log(`📊 Compras pendientes: ${comprasPendientes.length}`)
