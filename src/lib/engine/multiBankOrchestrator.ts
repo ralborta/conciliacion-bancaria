@@ -85,6 +85,11 @@ export class MultiBankReconciliationOrchestrator {
     
     console.log(`📊 Ventas totales: ${ventasOriginales.length}`)
     console.log(`📊 Compras totales: ${comprasOriginales.length}`)
+    
+    // Validar que hay datos para procesar
+    if (ventasOriginales.length === 0 && comprasOriginales.length === 0) {
+      throw new Error('No se encontraron datos válidos en los archivos de ventas y compras')
+    }
 
     // 2. Filtrar solo las no conciliadas
     const ventasPendientes = ventasOriginales.filter(v => !this.conciliadasVentas.has(v.id))
@@ -496,25 +501,65 @@ export class MultiBankReconciliationOrchestrator {
 
   private parseDate(dateValue: unknown): Date {
     try {
-      if (!dateValue) return new Date()
-      if (dateValue instanceof Date) return dateValue
+      // Si es null, undefined o string vacío, retornar fecha actual
+      if (!dateValue || (typeof dateValue === 'string' && dateValue.trim() === '')) {
+        return new Date()
+      }
       
-      // Si es string DD/MM/YYYY (formato argentino)
-      if (typeof dateValue === 'string' && dateValue.includes('/')) {
-        const parts = dateValue.split('/')
-        if (parts.length === 3) {
-          const day = parseInt(parts[0], 10)
-          const month = parseInt(parts[1], 10) - 1
-          const year = parseInt(parts[2], 10)
-          if (year > 1900 && year < 2100 && month >= 0 && month < 12 && day > 0 && day <= 31) {
-            return new Date(year, month, day)
+      // Si ya es una fecha válida
+      if (dateValue instanceof Date) {
+        return isNaN(dateValue.getTime()) ? new Date() : dateValue
+      }
+      
+      // Si es string, procesar
+      if (typeof dateValue === 'string') {
+        const cleanValue = dateValue.trim()
+        
+        // Si es string DD/MM/YYYY (formato argentino)
+        if (cleanValue.includes('/')) {
+          const parts = cleanValue.split('/')
+          if (parts.length === 3) {
+            const day = parseInt(parts[0], 10)
+            const month = parseInt(parts[1], 10) - 1
+            const year = parseInt(parts[2], 10)
+            
+            // Validar rangos
+            if (year >= 1900 && year <= 2100 && month >= 0 && month <= 11 && day >= 1 && day <= 31) {
+              const date = new Date(year, month, day)
+              if (!isNaN(date.getTime())) {
+                return date
+              }
+            }
           }
+        }
+        
+        // Si es string YYYY-MM-DD (formato ISO)
+        if (cleanValue.includes('-')) {
+          const date = new Date(cleanValue)
+          if (!isNaN(date.getTime())) {
+            return date
+          }
+        }
+        
+        // Intentar parsear como fecha estándar
+        const date = new Date(cleanValue)
+        if (!isNaN(date.getTime())) {
+          return date
         }
       }
       
-      // Fallback al comportamiento original
-      return new Date(String(dateValue))
-    } catch {
+      // Si es número (timestamp)
+      if (typeof dateValue === 'number') {
+        const date = new Date(dateValue)
+        if (!isNaN(date.getTime())) {
+          return date
+        }
+      }
+      
+      // Fallback: fecha actual
+      return new Date()
+    } catch (error) {
+      console.warn('Error parsing date:', dateValue, error)
       return new Date() // Fecha actual como fallback seguro
     }
   }
