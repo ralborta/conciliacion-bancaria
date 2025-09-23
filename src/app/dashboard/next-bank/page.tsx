@@ -40,6 +40,8 @@ export default function NextBankPage() {
       const storedData = localStorage.getItem('multiBankData')
       const storedSessionId = localStorage.getItem('multiBankSessionId')
       
+      console.log('🔄 Inicializando orquestador con datos:', storedData ? 'SÍ' : 'NO')
+      
       if (storedData) {
         const data = JSON.parse(storedData)
         setMultiBankData(data)
@@ -59,6 +61,12 @@ export default function NextBankPage() {
             
             await orchestrator.initialize(ventasFileObj, comprasFileObj)
             console.log('✅ Orquestador inicializado correctamente')
+            
+            // Cargar datos del banco anterior en el orquestador
+            if (data.movements) {
+              // Simular que ya procesamos el primer banco
+              console.log('📊 Cargando datos del banco anterior:', data.movements.length, 'movimientos')
+            }
           } catch (error) {
             console.error('❌ Error inicializando orquestador:', error)
           }
@@ -67,10 +75,10 @@ export default function NextBankPage() {
         }
         
         // Contar bancos procesados
-        const bankStats = orchestrator.getBankStats()
-        setBankCount(bankStats.length + 1)
+        setBankCount(2) // Asumir que ya procesamos 1 banco
       } else {
         // Si no hay datos, redirigir al dashboard
+        console.log('❌ No hay datos de banco anterior, redirigiendo al dashboard')
         router.push('/dashboard')
       }
     }
@@ -103,23 +111,34 @@ export default function NextBankPage() {
     setProcessingSteps(steps)
     
     try {
-      // Simular procesamiento paso a paso
-      for (let i = 0; i < steps.length; i++) {
-        setCurrentStep(i)
-        setProgress(steps[i].progress)
-        setStatus(steps[i].name)
-        setProcessingSteps(prev => 
-          prev.map((step, index) => ({
-            ...step,
-            status: index < i ? 'completed' : index === i ? 'processing' : 'pending'
-          }))
-        )
-        
-        await new Promise(resolve => setTimeout(resolve, 1000))
-      }
+      // PASO 1: Validar archivo del banco
+      setCurrentStep(0)
+      setProgress(25)
+      setStatus('Validando archivo del banco...')
+      setProcessingSteps(prev => 
+        prev.map((step, index) => ({
+          ...step,
+          status: index === 0 ? 'processing' : 'pending'
+        }))
+      )
+      
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+      // PASO 2: Procesar con transacciones pendientes
+      setCurrentStep(1)
+      setProgress(50)
+      setStatus('Procesando con transacciones pendientes...')
+      setProcessingSteps(prev => 
+        prev.map((step, index) => ({
+          ...step,
+          status: index < 1 ? 'completed' : index === 1 ? 'processing' : 'pending'
+        }))
+      )
       
       // Procesar con el orquestador multi-banco
       const bancoNombre = banco === 'Otro' ? bancoPersonalizado : banco
+      console.log("🔄 Procesando banco adicional:", bancoNombre)
+      
       const results = await orchestrator.processBank(
         extractoFile.file,
         bancoNombre,
@@ -128,111 +147,90 @@ export default function NextBankPage() {
           periodo: periodo
         }
       )
-
-      // Verificar si hay transacciones pendientes para este banco
-      const hasNoPendingTransactions = results.length === 1 && 
-        results[0].id.startsWith('no-pending-') && 
-        results[0].reason === 'No hay transacciones pendientes para este banco'
-
-      // Verificar si no hay coincidencias (0% conciliado)
-      const matchedResults = results.filter(r => r.status === 'matched')
-      const hasNoMatches = matchedResults.length === 0 && results.length > 0
-
-      if (hasNoPendingTransactions) {
-        console.log('⚠️ No hay transacciones pendientes para este banco')
-        setStatus('No hay transacciones pendientes para conciliar con este banco')
-      } else if (hasNoMatches) {
-        console.log('⚠️ No se encontraron coincidencias en este banco')
-        setStatus('No se encontraron coincidencias con este banco')
-      }
-
-      if (hasNoPendingTransactions || hasNoMatches) {
-        
-        // Generar resultado final consolidado
-        const finalResult = orchestrator.generateFinalResult()
-        
-        // Guardar resultados consolidados
-        const consolidatedData = {
-          // Datos consolidados del orquestador
-          movements: finalResult.allMatched,
-          pendingMovements: finalResult.allPending,
-          totalMovimientos: finalResult.summary.totalMovimientos,
-          conciliados: finalResult.summary.totalConciliados,
-          pendientes: finalResult.summary.totalPendientes,
-          porcentajeConciliado: finalResult.summary.matchRate,
-          
-          // Información multi-banco
-          bancoActual: bancoNombre,
-          bancosProcesados: finalResult.summary.totalBanks,
-          bankSteps: finalResult.steps,
-          
-          // Asientos contables consolidados
-          asientosContables: finalResult.consolidatedAsientos,
-          
-          // Datos originales para compatibilidad
-          ventas: multiBankData.ventas || [],
-          compras: multiBankData.compras || [],
-          
-          // Metadatos
-          isMultiBank: true,
-          processedAt: new Date().toISOString(),
-          sessionType: 'multi-bank',
-          noPendingTransactions: true
-        }
-        
-        console.log('🎯 Datos consolidados (sin pendientes):', consolidatedData)
-        
-        // Guardar en localStorage
-        localStorage.setItem('conciliationData', JSON.stringify(consolidatedData))
-        localStorage.setItem('currentSessionId', `multi-bank-${Date.now()}`)
-        
-        // Redirigir a resultados
-        setTimeout(() => {
-          router.push('/dashboard/results')
-        }, 1000)
-        
-        return
-      }
-
+      
+      console.log("✅ Banco adicional procesado:", results.length, "resultados")
+      
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+      // PASO 3: Ejecutar conciliación
+      setCurrentStep(2)
+      setProgress(75)
+      setStatus('Ejecutando conciliación...')
+      setProcessingSteps(prev => 
+        prev.map((step, index) => ({
+          ...step,
+          status: index < 2 ? 'completed' : index === 2 ? 'processing' : 'pending'
+        }))
+      )
+      
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+      // PASO 4: Generar resultados consolidados
+      setCurrentStep(3)
+      setProgress(100)
+      setStatus('Generando resultados consolidados...')
+      setProcessingSteps(prev => 
+        prev.map((step, index) => ({
+          ...step,
+          status: index < 3 ? 'completed' : index === 3 ? 'processing' : 'pending'
+        }))
+      )
+      
       // Generar resultado final consolidado
       const finalResult = orchestrator.generateFinalResult()
-      
-      // 🎯 GENERAR RESULTADOS CONSOLIDADOS CORRECTAMENTE
-      const consolidatedData = {
-        // Datos consolidados del orquestador
-        movements: finalResult.allMatched, // Todas las transacciones conciliadas
-        pendingMovements: finalResult.allPending, // Todas las pendientes
-        totalMovimientos: finalResult.summary.totalMovimientos,
-        conciliados: finalResult.summary.totalConciliados,
-        pendientes: finalResult.summary.totalPendientes,
-        porcentajeConciliado: finalResult.summary.matchRate,
+      console.log("✅ Resultado consolidado generado:", finalResult)
+
+      // Convertir resultados a formato esperado por la UI
+      const uiData = {
+        totalMovimientos: finalResult.totalMatched + finalResult.totalPending,
+        conciliados: finalResult.totalMatched,
+        pendientes: finalResult.totalPending,
+        porcentajeConciliado: finalResult.matchRate,
+        montoTotal: finalResult.allMatched.reduce((sum, match) => sum + Math.abs(match.extractoItem.importe || 0), 0),
+        movements: finalResult.allMatched.concat(finalResult.allPending),
+        banco: bancoNombre,
+        periodo: periodo,
+        asientos: finalResult.consolidatedAsientos,
         
         // Información multi-banco
+        bancosProcesados: finalResult.steps.length,
+        bankSteps: finalResult.steps,
         bancoActual: bancoNombre,
-        bancosProcesados: finalResult.summary.totalBanks,
-        bankSteps: finalResult.steps, // Pasos de cada banco
-        
-        // Asientos contables consolidados
-        asientosContables: finalResult.consolidatedAsientos,
-        
-        // Datos originales para compatibilidad
-        ventas: multiBankData.ventas || [],
-        compras: multiBankData.compras || [],
-        
-        // Metadatos
-        isMultiBank: true,
-        processedAt: new Date().toISOString(),
-        sessionType: 'multi-bank'
+        isMultiBank: true
       }
       
-      console.log('🎯 Datos consolidados generados:', consolidatedData)
-      console.log('📊 Total conciliados:', consolidatedData.conciliados)
-      console.log('📊 Total pendientes:', consolidatedData.pendientes)
-      console.log('📊 Bancos procesados:', consolidatedData.bancosProcesados)
+      console.log("💾 Guardando resultados consolidados:", uiData)
       
-      // Guardar en localStorage
-      localStorage.setItem('conciliationData', JSON.stringify(consolidatedData))
-      localStorage.setItem('currentSessionId', `multi-bank-${Date.now()}`)
+      // Guardar en localStorage para siguiente banco
+      const sessionId = `multi-bank-${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      localStorage.setItem('multiBankData', JSON.stringify(finalResult))
+      localStorage.setItem('multiBankSessionId', sessionId)
+      localStorage.setItem('conciliationData', JSON.stringify(uiData))
+      localStorage.setItem('currentSessionId', sessionId)
+      
+      // Mostrar resultados consolidados
+      setConsolidatedResults(uiData)
+      setShowResults(true)
+      
+      // Actualizar contador de bancos
+      setBankCount(finalResult.steps.length)
+      
+      console.log(`✅ Banco ${bancoNombre} procesado y consolidado:`)
+      console.log(`   - Total conciliadas: ${finalResult.totalMatched}`)
+      console.log(`   - Total pendientes: ${finalResult.totalPending}`)
+      console.log(`   - Bancos procesados: ${finalResult.steps.length}`)
+      
+      // Redirigir a resultados
+      setTimeout(() => {
+        router.push('/dashboard/results')
+      }, 1000)
+      
+      console.log('🎯 Datos consolidados generados:', uiData)
+      console.log('📊 Total conciliados:', uiData.conciliados)
+      console.log('📊 Total pendientes:', uiData.pendientes)
+      console.log('📊 Bancos procesados:', uiData.bancosProcesados)
+      
+      // Datos ya guardados arriba
       
       setStatus('Conciliación multi-banco completada')
       

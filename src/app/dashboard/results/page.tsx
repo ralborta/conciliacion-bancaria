@@ -438,8 +438,14 @@ function ResultsContent() {
           <button
             onClick={() => {
               // Guardar datos actuales para el siguiente banco
+              console.log('💾 Guardando datos para siguiente banco:', data);
               localStorage.setItem('multiBankData', JSON.stringify(data));
               localStorage.setItem('multiBankSessionId', sessionId || '');
+              
+              // Guardar también los datos de conciliación para compatibilidad
+              localStorage.setItem('conciliationData', JSON.stringify(data));
+              localStorage.setItem('currentSessionId', sessionId || '');
+              
               // Redirigir a la página de siguiente banco
               window.location.href = '/dashboard/next-bank';
             }}
