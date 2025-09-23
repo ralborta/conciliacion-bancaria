@@ -35,43 +35,47 @@ export default function NextBankPage() {
   const puedeProcesar = extractoFile && bancoValido && periodo
 
   useEffect(() => {
-    // Cargar datos del banco anterior
-    const storedData = localStorage.getItem('multiBankData')
-    const storedSessionId = localStorage.getItem('multiBankSessionId')
-    
-    if (storedData) {
-      const data = JSON.parse(storedData)
-      setMultiBankData(data)
+    const initializeOrchestrator = async () => {
+      // Cargar datos del banco anterior
+      const storedData = localStorage.getItem('multiBankData')
+      const storedSessionId = localStorage.getItem('multiBankSessionId')
       
-      // Inicializar el orquestador con los archivos base
-      const ventasFile = localStorage.getItem('ventasFile')
-      const comprasFile = localStorage.getItem('comprasFile')
-      
-      if (ventasFile && comprasFile) {
-        try {
-          // Convertir de base64 a File
-          const ventasBlob = new Blob([atob(ventasFile)], { type: 'text/csv' })
-          const comprasBlob = new Blob([atob(comprasFile)], { type: 'text/csv' })
-          
-          const ventasFileObj = new File([ventasBlob], 'ventas.csv', { type: 'text/csv' })
-          const comprasFileObj = new File([comprasBlob], 'compras.csv', { type: 'text/csv' })
-          
-          await orchestrator.initialize(ventasFileObj, comprasFileObj)
-          console.log('✅ Orquestador inicializado correctamente')
-        } catch (error) {
-          console.error('❌ Error inicializando orquestador:', error)
+      if (storedData) {
+        const data = JSON.parse(storedData)
+        setMultiBankData(data)
+        
+        // Inicializar el orquestador con los archivos base
+        const ventasFile = localStorage.getItem('ventasFile')
+        const comprasFile = localStorage.getItem('comprasFile')
+        
+        if (ventasFile && comprasFile) {
+          try {
+            // Convertir de base64 a File
+            const ventasBlob = new Blob([atob(ventasFile)], { type: 'text/csv' })
+            const comprasBlob = new Blob([atob(comprasFile)], { type: 'text/csv' })
+            
+            const ventasFileObj = new File([ventasBlob], 'ventas.csv', { type: 'text/csv' })
+            const comprasFileObj = new File([comprasBlob], 'compras.csv', { type: 'text/csv' })
+            
+            await orchestrator.initialize(ventasFileObj, comprasFileObj)
+            console.log('✅ Orquestador inicializado correctamente')
+          } catch (error) {
+            console.error('❌ Error inicializando orquestador:', error)
+          }
+        } else {
+          console.error('❌ No se encontraron archivos base en localStorage')
         }
+        
+        // Contar bancos procesados
+        const bankStats = orchestrator.getBankStats()
+        setBankCount(bankStats.length + 1)
       } else {
-        console.error('❌ No se encontraron archivos base en localStorage')
+        // Si no hay datos, redirigir al dashboard
+        router.push('/dashboard')
       }
-      
-      // Contar bancos procesados
-      const bankStats = orchestrator.getBankStats()
-      setBankCount(bankStats.length + 1)
-    } else {
-      // Si no hay datos, redirigir al dashboard
-      router.push('/dashboard')
     }
+
+    initializeOrchestrator()
   }, [orchestrator, router])
 
   const handleExtractoUpload = (file: UploadedFile) => {
