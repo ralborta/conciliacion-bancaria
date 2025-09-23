@@ -262,7 +262,6 @@ export default function MultiBankPage() {
                     onFileRemove={() => actualizarBanco(banco.id, 'extracto', null)}
                     selectedFile={banco.extracto}
                     accept=".csv,.xlsx,.xls,.pdf"
-                    compact
                   />
                 </div>
                 
