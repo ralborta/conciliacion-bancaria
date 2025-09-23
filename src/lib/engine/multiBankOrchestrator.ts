@@ -126,7 +126,7 @@ export class MultiBankReconciliationOrchestrator {
         matchedWith: null,
         score: 0,
         status: 'pending' as const,
-        tipo: 'info' as const,
+        tipo: 'venta' as const,
         reason: 'No hay transacciones pendientes para este banco'
       }]
     }
