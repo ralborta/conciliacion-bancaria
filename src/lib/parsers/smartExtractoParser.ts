@@ -248,37 +248,63 @@ export class SmartExtractoParser {
   
   // UTILIDADES
   private parseDate(value: any): Date {
-    if (!value) return new Date();
-    if (value instanceof Date) return value;
-    if (typeof value === 'number') return this.excelDateToJS(value);
-    if (typeof value === 'string') {
-      // Formato YYYY-MM-DD o DD/MM/YYYY
-      if (value.includes('-')) {
-        const date = new Date(value);
-        if (!isNaN(date.getTime())) {
-          return date;
-        }
+    try {
+      if (!value) {
+        console.warn(`⚠️ Valor de fecha vacío, usando fecha actual`);
+        return new Date();
       }
-      if (value.includes('/')) {
-        const parts = value.split('/');
-        if (parts.length === 3) {
-          const day = parseInt(parts[0], 10);
-          const month = parseInt(parts[1], 10) - 1;
-          const year = parseInt(parts[2], 10);
-          if (year >= 1900 && year <= 2100 && month >= 0 && month <= 11 && day >= 1 && day <= 31) {
-            const date = new Date(year, month, day);
-            if (!isNaN(date.getTime())) {
-              return date;
+      
+      if (value instanceof Date) {
+        if (isNaN(value.getTime())) {
+          console.warn(`⚠️ Fecha inválida: ${value}, usando fecha actual`);
+          return new Date();
+        }
+        return value;
+      }
+      
+      if (typeof value === 'number') {
+        const date = this.excelDateToJS(value);
+        console.log(`✅ Fecha Excel parseada: ${value} -> ${date.toLocaleDateString('es-AR')}`);
+        return date;
+      }
+      
+      if (typeof value === 'string') {
+        // Formato YYYY-MM-DD o DD/MM/YYYY
+        if (value.includes('-')) {
+          const date = new Date(value);
+          if (!isNaN(date.getTime())) {
+            console.log(`✅ Fecha ISO parseada: ${value} -> ${date.toLocaleDateString('es-AR')}`);
+            return date;
+          }
+        }
+        if (value.includes('/')) {
+          const parts = value.split('/');
+          if (parts.length === 3) {
+            const day = parseInt(parts[0], 10);
+            const month = parseInt(parts[1], 10) - 1;
+            const year = parseInt(parts[2], 10);
+            if (year >= 1900 && year <= 2100 && month >= 0 && month <= 11 && day >= 1 && day <= 31) {
+              const date = new Date(year, month, day);
+              if (!isNaN(date.getTime())) {
+                console.log(`✅ Fecha parseada: ${value} -> ${date.toLocaleDateString('es-AR')}`);
+                return date;
+              }
             }
           }
         }
+        const date = new Date(value);
+        if (!isNaN(date.getTime())) {
+          console.log(`✅ Fecha estándar parseada: ${value} -> ${date.toLocaleDateString('es-AR')}`);
+          return date;
+        }
       }
-      const date = new Date(value);
-      if (!isNaN(date.getTime())) {
-        return date;
-      }
+      
+      console.warn(`⚠️ No se pudo parsear fecha: ${value}, usando fecha actual`);
+      return new Date();
+    } catch (error) {
+      console.error(`❌ Error parseando fecha ${value}:`, error);
+      return new Date();
     }
-    return new Date();
   }
   
   private parseNumber(value: any): number {
@@ -294,7 +320,26 @@ export class SmartExtractoParser {
   }
   
   private excelDateToJS(excelDate: number): Date {
-    // Excel dates start from 1900-01-01
-    return new Date((excelDate - 25569) * 86400 * 1000);
+    try {
+      // Validar que el número sea válido
+      if (!excelDate || isNaN(excelDate) || excelDate < 1) {
+        console.warn(`⚠️ Fecha Excel inválida: ${excelDate}, usando fecha actual`);
+        return new Date();
+      }
+      
+      // Excel dates start from 1900-01-01
+      const result = new Date((excelDate - 25569) * 86400 * 1000);
+      
+      // Validar que la fecha resultante sea válida
+      if (isNaN(result.getTime())) {
+        console.warn(`⚠️ Fecha resultante inválida: ${result}, usando fecha actual`);
+        return new Date();
+      }
+      
+      return result;
+    } catch (error) {
+      console.error(`❌ Error convirtiendo fecha Excel ${excelDate}:`, error);
+      return new Date();
+    }
   }
 }
