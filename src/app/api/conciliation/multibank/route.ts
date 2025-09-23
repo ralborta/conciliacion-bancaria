@@ -2,7 +2,7 @@
 // Endpoint específico para procesar bancos adicionales
 
 import { NextRequest, NextResponse } from 'next/server'
-import { ConciliationEngine } from '@/lib/engine/conciliationEngine'
+import { ConciliationEngine } from '@/lib/engine/matcher'
 
 export async function POST(req: NextRequest) {
   try {
