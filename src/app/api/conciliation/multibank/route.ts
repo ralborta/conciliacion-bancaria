@@ -103,10 +103,46 @@ export async function POST(req: NextRequest) {
     const comprasData = ventasComprasParser.parseCompras(comprasBuffer)
     const extractoData = extractoParser.parseExtracto(extractoBuffer)
     
-    // Normalizar datos
-    const ventasNormalizadas = engine.normalizeVentas(ventasData)
-    const comprasNormalizadas = engine.normalizeCompras(comprasData)
-    const extractoNormalizado = engine.normalizeExtracto(extractoData)
+    // Convertir datos del parser a formato esperado por el motor
+    const ventasNormalizadas = ventasData.map((v, index) => ({
+      id: `venta_${index}`,
+      fechaEmision: v.fecha,
+      cliente: v.cliente,
+      total: v.total,
+      cuitCliente: v.cuitCliente,
+      tipo: v.tipo,
+      puntoVenta: v.puntoVenta,
+      numero: v.numero,
+      neto: v.neto,
+      iva: v.iva,
+      medioCobro: 'Efectivo',
+      moneda: 'ARS'
+    }))
+    
+    const comprasNormalizadas = comprasData.map((c, index) => ({
+      id: `compra_${index}`,
+      fechaEmision: c.fecha,
+      proveedor: c.proveedor,
+      total: c.total,
+      cuitProveedor: c.cuitProveedor,
+      tipo: c.tipo,
+      puntoVenta: c.puntoVenta,
+      numero: c.numero,
+      neto: c.neto,
+      iva: c.iva,
+      medioPago: 'Efectivo',
+      moneda: 'ARS',
+      formaPago: 'Efectivo'
+    }))
+    
+    const extractoNormalizado = extractoData.map((e, index) => ({
+      id: `extracto_${index}`,
+      fecha: e.fecha,
+      concepto: e.concepto,
+      importe: e.importe,
+      banco: banco,
+      saldo: e.saldo || 0
+    }))
     
     // Ejecutar matching
     const newResult = await engine.runMatching(
