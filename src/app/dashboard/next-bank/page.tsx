@@ -140,20 +140,38 @@ export default function NextBankPage() {
         }))
       )
       
-      // Procesar con el orquestador multi-banco
+      // Procesar con la API directamente (como el primer banco)
       const bancoNombre = banco === 'Otro' ? bancoPersonalizado : banco
-      console.log("🔄 Procesando banco adicional:", bancoNombre)
+      console.log("🔄 Procesando banco adicional con API:", bancoNombre)
       
-      const results = await orchestrator.processBank(
-        extractoFile.file,
-        bancoNombre,
-        {
-          banco: bancoNombre,
-          periodo: periodo
-        }
-      )
+      // Crear FormData para la API
+      const formData = new FormData()
+      formData.append('ventas', multiBankData.ventasFile || '')
+      formData.append('compras', multiBankData.comprasFile || '')
+      formData.append('extracto', extractoFile.file)
+      formData.append('banco', bancoNombre)
+      formData.append('periodo', periodo)
       
-      console.log("✅ Banco adicional procesado:", results.length, "resultados")
+      // Llamar a la API
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://conciliacion-bancaria-production.up.railway.app'
+      const response = await fetch(`${apiUrl}/api/conciliation/process`, {
+        method: 'POST',
+        body: formData
+      })
+      
+      if (!response.ok) {
+        throw new Error(`Error HTTP ${response.status}`)
+      }
+      
+      const result = await response.json()
+      if (!result.success) {
+        throw new Error(result.error || 'Error en el procesamiento')
+      }
+      
+      console.log("✅ Banco adicional procesado con API:", result.data)
+      
+      // Simular resultados para compatibilidad
+      const results = result.data.movements || []
       
       await new Promise(resolve => setTimeout(resolve, 1000))
       
@@ -181,25 +199,21 @@ export default function NextBankPage() {
         }))
       )
       
-      // Generar resultado final consolidado
-      const finalResult = orchestrator.generateFinalResult()
-      console.log("✅ Resultado consolidado generado:", finalResult)
-
-      // Convertir resultados a formato esperado por la UI
+      // Usar datos de la API directamente
       const uiData = {
-        totalMovimientos: finalResult.totalMatched + finalResult.totalPending,
-        conciliados: finalResult.totalMatched,
-        pendientes: finalResult.totalPending,
-        porcentajeConciliado: finalResult.matchRate,
-        montoTotal: finalResult.allMatched.reduce((sum, match) => sum + Math.abs(match.extractoItem.importe || 0), 0),
-        movements: finalResult.allMatched.concat(finalResult.allPending),
+        totalMovimientos: result.data.totalMovimientos || 0,
+        conciliados: result.data.conciliados || 0,
+        pendientes: result.data.pendientes || 0,
+        porcentajeConciliado: result.data.porcentajeConciliado || 0,
+        montoTotal: result.data.montoTotal || 0,
+        movements: result.data.movements || [],
         banco: bancoNombre,
         periodo: periodo,
-        asientos: finalResult.consolidatedAsientos,
+        asientos: result.data.asientos || [],
         
         // Información multi-banco
-        bancosProcesados: finalResult.steps.length,
-        bankSteps: finalResult.steps,
+        bancosProcesados: 2, // Asumir que ya procesamos 2 bancos
+        bankSteps: [],
         bancoActual: bancoNombre,
         isMultiBank: true
       }
@@ -208,7 +222,7 @@ export default function NextBankPage() {
       
       // Guardar en localStorage para siguiente banco
       const sessionId = `multi-bank-${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-      localStorage.setItem('multiBankData', JSON.stringify(finalResult))
+      localStorage.setItem('multiBankData', JSON.stringify(uiData))
       localStorage.setItem('multiBankSessionId', sessionId)
       localStorage.setItem('conciliationData', JSON.stringify(uiData))
       localStorage.setItem('currentSessionId', sessionId)
@@ -218,22 +232,17 @@ export default function NextBankPage() {
       setShowResults(true)
       
       // Actualizar contador de bancos
-      setBankCount(finalResult.steps.length)
+      setBankCount(2)
       
-      console.log(`✅ Banco ${bancoNombre} procesado y consolidado:`)
-      console.log(`   - Total conciliadas: ${finalResult.totalMatched}`)
-      console.log(`   - Total pendientes: ${finalResult.totalPending}`)
-      console.log(`   - Bancos procesados: ${finalResult.steps.length}`)
+      console.log(`✅ Banco ${bancoNombre} procesado con API:`)
+      console.log(`   - Total conciliadas: ${uiData.conciliados}`)
+      console.log(`   - Total pendientes: ${uiData.pendientes}`)
+      console.log(`   - Porcentaje: ${uiData.porcentajeConciliado}%`)
       
       // Redirigir a resultados
       setTimeout(() => {
         router.push('/dashboard/results')
       }, 1000)
-      
-      console.log('🎯 Datos consolidados generados:', uiData)
-      console.log('📊 Total conciliados:', uiData.conciliados)
-      console.log('📊 Total pendientes:', uiData.pendientes)
-      console.log('📊 Bancos procesados:', uiData.bancosProcesados)
       
       // Datos ya guardados arriba
       
