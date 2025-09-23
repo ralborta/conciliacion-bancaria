@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ConciliationEngine } from '@/lib/engine/matcher'
 import { memoryStorage } from '@/lib/storage/memory'
 import { ProcessOptions, ConciliationStats } from '@/lib/types/conciliacion'
-import { ArgentinaExcelParser } from '@/lib/parsers/excelParser'
+import { SmartVentasComprasParser } from '@/lib/parsers/smartVentasComprasParser'
 import { SmartExtractoParser } from '@/lib/parsers/smartExtractoParser'
 import { AsientosGenerator } from '@/lib/engine/asientosGenerator'
 
@@ -382,29 +382,29 @@ async function procesarConciliacionConDebug(ventasFile: File, comprasFile: File,
     const engine = new ConciliationEngine();
     const options: ProcessOptions = { banco, periodo };
     
-    // Parsear archivos con parser híbrido (ArgentinaExcelParser + SmartExtractoParser)
-    console.log("🔄 Parseando archivos con parser híbrido...");
+    // Parsear archivos con parser inteligente completo (como en la emulación)
+    console.log("🔄 Parseando archivos con parser inteligente completo...");
     
-    const afipParser = new ArgentinaExcelParser();
+    const ventasComprasParser = new SmartVentasComprasParser();
     const extractoParser = new SmartExtractoParser();
     
-    // Parsear con el parser híbrido
+    // Parsear con el parser inteligente completo
     const ventasBuffer = await ventasFile.arrayBuffer();
     const comprasBuffer = await comprasFile.arrayBuffer();
     const extractoBuffer = await extractoFile.arrayBuffer();
     
-    const ventasData = afipParser.parseAFIPFile(ventasBuffer, 'ventas');
-    const comprasData = afipParser.parseAFIPFile(comprasBuffer, 'compras');
+    const ventasData = ventasComprasParser.parseVentas(ventasBuffer);
+    const comprasData = ventasComprasParser.parseCompras(comprasBuffer);
     const extractoData = extractoParser.parseExtracto(extractoBuffer);
     
-    console.log("✅ Archivos parseados con parser híbrido:", {
+    console.log("✅ Archivos parseados con parser inteligente completo:", {
       ventas: ventasData?.length || 0,
       compras: comprasData?.length || 0,
       extracto: extractoData?.length || 0
     });
     
-    // PASO 2: Los datos ya están normalizados por el parser híbrido
-    console.log("PASO 2 - Datos ya normalizados por parser híbrido");
+    // PASO 2: Los datos ya están normalizados por el parser inteligente
+    console.log("PASO 2 - Datos ya normalizados por parser inteligente");
     
     // Convertir datos del parser a formato esperado por el motor
     const ventasNormalizadas = ventasData.map((v, index) => ({
