@@ -44,19 +44,25 @@ export default function NextBankPage() {
       setMultiBankData(data)
       
       // Inicializar el orquestador con los archivos base
-      // (Estos deberían estar guardados en localStorage también)
       const ventasFile = localStorage.getItem('ventasFile')
       const comprasFile = localStorage.getItem('comprasFile')
       
       if (ventasFile && comprasFile) {
-        // Convertir de base64 a File
-        const ventasBlob = new Blob([atob(ventasFile)], { type: 'application/octet-stream' })
-        const comprasBlob = new Blob([atob(comprasFile)], { type: 'application/octet-stream' })
-        
-        const ventasFileObj = new File([ventasBlob], 'ventas.csv', { type: 'text/csv' })
-        const comprasFileObj = new File([comprasBlob], 'compras.csv', { type: 'text/csv' })
-        
-        orchestrator.initialize(ventasFileObj, comprasFileObj)
+        try {
+          // Convertir de base64 a File
+          const ventasBlob = new Blob([atob(ventasFile)], { type: 'text/csv' })
+          const comprasBlob = new Blob([atob(comprasFile)], { type: 'text/csv' })
+          
+          const ventasFileObj = new File([ventasBlob], 'ventas.csv', { type: 'text/csv' })
+          const comprasFileObj = new File([comprasBlob], 'compras.csv', { type: 'text/csv' })
+          
+          await orchestrator.initialize(ventasFileObj, comprasFileObj)
+          console.log('✅ Orquestador inicializado correctamente')
+        } catch (error) {
+          console.error('❌ Error inicializando orquestador:', error)
+        }
+      } else {
+        console.error('❌ No se encontraron archivos base en localStorage')
       }
       
       // Contar bancos procesados
@@ -124,9 +130,19 @@ export default function NextBankPage() {
         results[0].id.startsWith('no-pending-') && 
         results[0].reason === 'No hay transacciones pendientes para este banco'
 
+      // Verificar si no hay coincidencias (0% conciliado)
+      const matchedResults = results.filter(r => r.status === 'matched')
+      const hasNoMatches = matchedResults.length === 0 && results.length > 0
+
       if (hasNoPendingTransactions) {
         console.log('⚠️ No hay transacciones pendientes para este banco')
         setStatus('No hay transacciones pendientes para conciliar con este banco')
+      } else if (hasNoMatches) {
+        console.log('⚠️ No se encontraron coincidencias en este banco')
+        setStatus('No se encontraron coincidencias con este banco')
+      }
+
+      if (hasNoPendingTransactions || hasNoMatches) {
         
         // Generar resultado final consolidado
         const finalResult = orchestrator.generateFinalResult()

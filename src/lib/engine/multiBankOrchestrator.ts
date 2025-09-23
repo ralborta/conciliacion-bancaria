@@ -58,7 +58,16 @@ export class MultiBankReconciliationOrchestrator {
     this.ventasFile = ventasFile
     this.comprasFile = comprasFile
     
+    // Resetear estado
+    this.processingSteps = []
+    this.allMatched = []
+    this.allPending = []
+    this.allAsientos = []
+    this.conciliadasVentas.clear()
+    this.conciliadasCompras.clear()
+    
     console.log(`📊 Archivos base guardados para procesamiento secuencial`)
+    console.log(`📊 Estado reseteado para nuevo proceso multi-banco`)
   }
 
   /**
@@ -166,8 +175,11 @@ export class MultiBankReconciliationOrchestrator {
     this.processingSteps.push(step)
 
     // 8. Acumular resultados
-    this.allMatched.push(...results.filter(r => r.status === 'matched'))
-    this.allPending.push(...results.filter(r => r.status === 'pending'))
+    const matchedResults = results.filter(r => r.status === 'matched')
+    const pendingResults = results.filter(r => r.status === 'pending')
+    
+    this.allMatched.push(...matchedResults)
+    this.allPending.push(...pendingResults)
 
     // 9. Extraer asientos contables si existen
     this.extractAsientos(results)
@@ -177,6 +189,11 @@ export class MultiBankReconciliationOrchestrator {
     console.log(`   - Pendientes: ${step.pendingCount}`)
     console.log(`   - Ventas conciliadas: ${step.ventasConciliadas}`)
     console.log(`   - Compras conciliadas: ${step.comprasConciliadas}`)
+    console.log(`📊 Acumulado total:`)
+    console.log(`   - Total conciliadas: ${this.allMatched.length}`)
+    console.log(`   - Total pendientes: ${this.allPending.length}`)
+    console.log(`   - Ventas ya conciliadas: ${this.conciliadasVentas.size}`)
+    console.log(`   - Compras ya conciliadas: ${this.conciliadasCompras.size}`)
 
     return results
   }
