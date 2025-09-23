@@ -93,10 +93,42 @@ export class MultiBankReconciliationOrchestrator {
     console.log(`📊 Ventas pendientes: ${ventasPendientes.length}`)
     console.log(`📊 Compras pendientes: ${comprasPendientes.length}`)
 
-    // 3. Si no hay transacciones pendientes, retornar vacío
+    // 3. Si no hay transacciones pendientes, retornar resultado especial
     if (ventasPendientes.length === 0 && comprasPendientes.length === 0) {
       console.log(`⚠️ No hay transacciones pendientes para ${bankName}`)
-      return []
+      
+      // Registrar el paso sin conciliaciones
+      const step: BankProcessingStep = {
+        bankName,
+        processedAt: new Date(),
+        matchedCount: 0,
+        pendingCount: 0,
+        totalVentas: ventasOriginales.length,
+        totalCompras: comprasOriginales.length,
+        ventasConciliadas: 0,
+        comprasConciliadas: 0
+      }
+      
+      this.processingSteps.push(step)
+      
+      // Retornar resultado especial indicando que no hay pendientes
+      return [{
+        id: `no-pending-${Date.now()}`,
+        extractoItem: {
+          id: 'no-pending',
+          banco: bankName,
+          cuenta: 'N/A',
+          fechaOperacion: new Date(),
+          concepto: 'No hay transacciones pendientes para conciliar',
+          importe: 0,
+          saldo: 0
+        },
+        matchedWith: null,
+        score: 0,
+        status: 'pending' as const,
+        tipo: 'info' as const,
+        reason: 'No hay transacciones pendientes para este banco'
+      }]
     }
 
     // 4. Crear archivos temporales solo con pendientes

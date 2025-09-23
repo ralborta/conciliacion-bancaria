@@ -119,6 +119,61 @@ export default function NextBankPage() {
         }
       )
 
+      // Verificar si hay transacciones pendientes para este banco
+      const hasNoPendingTransactions = results.length === 1 && 
+        results[0].id.startsWith('no-pending-') && 
+        results[0].reason === 'No hay transacciones pendientes para este banco'
+
+      if (hasNoPendingTransactions) {
+        console.log('⚠️ No hay transacciones pendientes para este banco')
+        setStatus('No hay transacciones pendientes para conciliar con este banco')
+        
+        // Generar resultado final consolidado
+        const finalResult = orchestrator.generateFinalResult()
+        
+        // Guardar resultados consolidados
+        const consolidatedData = {
+          // Datos consolidados del orquestador
+          movements: finalResult.allMatched,
+          pendingMovements: finalResult.allPending,
+          totalMovimientos: finalResult.summary.totalMovimientos,
+          conciliados: finalResult.summary.totalConciliados,
+          pendientes: finalResult.summary.totalPendientes,
+          porcentajeConciliado: finalResult.summary.matchRate,
+          
+          // Información multi-banco
+          bancoActual: bancoNombre,
+          bancosProcesados: finalResult.summary.totalBanks,
+          bankSteps: finalResult.steps,
+          
+          // Asientos contables consolidados
+          asientosContables: finalResult.consolidatedAsientos,
+          
+          // Datos originales para compatibilidad
+          ventas: multiBankData.ventas || [],
+          compras: multiBankData.compras || [],
+          
+          // Metadatos
+          isMultiBank: true,
+          processedAt: new Date().toISOString(),
+          sessionType: 'multi-bank',
+          noPendingTransactions: true
+        }
+        
+        console.log('🎯 Datos consolidados (sin pendientes):', consolidatedData)
+        
+        // Guardar en localStorage
+        localStorage.setItem('conciliationData', JSON.stringify(consolidatedData))
+        localStorage.setItem('currentSessionId', `multi-bank-${Date.now()}`)
+        
+        // Redirigir a resultados
+        setTimeout(() => {
+          router.push('/dashboard/results')
+        }, 1000)
+        
+        return
+      }
+
       // Generar resultado final consolidado
       const finalResult = orchestrator.generateFinalResult()
       

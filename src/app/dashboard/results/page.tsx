@@ -259,9 +259,22 @@ function ResultsContent() {
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {data.bankSteps.map((step: any, index: number) => (
-              <div key={index} className="bg-white border border-purple-200 rounded-lg p-3">
+              <div key={index} className={`border rounded-lg p-3 ${
+                step.matchedCount === 0 && step.pendingCount === 0
+                  ? 'bg-yellow-50 border-yellow-200'
+                  : 'bg-white border-purple-200'
+              }`}>
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-medium text-purple-800">Banco #{index + 1}</h4>
+                  <h4 className={`font-medium ${
+                    step.matchedCount === 0 && step.pendingCount === 0
+                      ? 'text-yellow-800'
+                      : 'text-purple-800'
+                  }`}>
+                    Banco #{index + 1}
+                    {step.matchedCount === 0 && step.pendingCount === 0 && (
+                      <span className="text-xs ml-2">⚠️ Sin pendientes</span>
+                    )}
+                  </h4>
                   <span className="text-xs text-purple-600">
                     {new Date(step.processedAt).toLocaleDateString()}
                   </span>
@@ -283,9 +296,44 @@ function ResultsContent() {
                     <span>Compras:</span>
                     <span className="font-medium">{step.comprasConciliadas}/{step.totalCompras}</span>
                   </div>
+                  {step.matchedCount === 0 && step.pendingCount === 0 && (
+                    <div className="mt-2 text-xs text-yellow-700 bg-yellow-100 p-2 rounded">
+                      No había transacciones pendientes para conciliar con este banco
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Mensaje especial cuando no hay transacciones pendientes */}
+      {data.noPendingTransactions && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-6">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <div className="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center">
+                <span className="text-yellow-600 text-lg">ℹ️</span>
+              </div>
+            </div>
+            <div className="ml-4 flex-1">
+              <h3 className="text-lg font-semibold text-yellow-800 mb-2">
+                No hay transacciones pendientes
+              </h3>
+              <p className="text-yellow-700 mb-4">
+                El banco que acabas de procesar no tenía transacciones pendientes para conciliar. 
+                Esto significa que todas las transacciones ya fueron conciliadas en bancos anteriores.
+              </p>
+              <div className="bg-yellow-100 border border-yellow-200 rounded-lg p-3">
+                <h4 className="font-medium text-yellow-800 mb-2">✅ Estado actual:</h4>
+                <ul className="text-sm text-yellow-700 space-y-1">
+                  <li>• Todas las transacciones han sido procesadas</li>
+                  <li>• No quedan transacciones pendientes para conciliar</li>
+                  <li>• El proceso multi-banco está completo</li>
+                </ul>
+              </div>
+            </div>
           </div>
         </div>
       )}
