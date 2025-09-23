@@ -133,8 +133,8 @@ export class MultiBankReconciliationOrchestrator {
         processedAt: new Date(),
         matchedCount: 0,
         pendingCount: 0,
-        totalVentas: ventasOriginales.length,
-        totalCompras: comprasOriginales.length,
+        totalVentas: this.ventasData.length,
+        totalCompras: this.comprasData.length,
         ventasConciliadas: 0,
         comprasConciliadas: 0
       }
@@ -182,8 +182,8 @@ export class MultiBankReconciliationOrchestrator {
       processedAt: new Date(),
       matchedCount: results.filter(r => r.status === 'matched').length,
       pendingCount: results.filter(r => r.status === 'pending').length,
-      totalVentas: ventasOriginales.length,
-      totalCompras: comprasOriginales.length,
+      totalVentas: this.ventasData.length,
+      totalCompras: this.comprasData.length,
       ventasConciliadas: results.filter(r => r.status === 'matched' && r.tipo === 'venta').length,
       comprasConciliadas: results.filter(r => r.status === 'matched' && r.tipo === 'compra').length
     }
