@@ -2,9 +2,6 @@
 // Endpoint específico para procesar bancos adicionales
 
 import { NextRequest, NextResponse } from 'next/server'
-import { ConciliationEngine } from '@/lib/engine/matcher'
-import { SmartVentasComprasParser } from '@/lib/parsers/smartVentasComprasParser'
-import { SmartExtractoParser } from '@/lib/parsers/smartExtractoParser'
 
 export async function POST(req: NextRequest) {
   try {
@@ -89,67 +86,33 @@ export async function POST(req: NextRequest) {
     })
 
     // Usar el motor de conciliación existente (SIN TOCAR)
-    const engine = new ConciliationEngine()
+    // En lugar de crear una instancia nueva, usar la API existente
     
-    // Parsear archivos con el parser inteligente
-    const ventasComprasParser = new SmartVentasComprasParser()
-    const extractoParser = new SmartExtractoParser()
+    // Crear FormData para usar la API existente que ya funciona
+    const engineFormData = new FormData()
+    engineFormData.append('ventas', ventasFile)
+    engineFormData.append('compras', comprasFile)
+    engineFormData.append('extracto', extractoFile)
+    engineFormData.append('banco', banco)
+    engineFormData.append('periodo', periodo)
     
-    const ventasBuffer = await ventasFile.arrayBuffer()
-    const comprasBuffer = await comprasFile.arrayBuffer()
-    const extractoBuffer = await extractoFile.arrayBuffer()
+    // Hacer llamada interna a la API que ya funciona
+    const engineResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/conciliation/process`, {
+      method: 'POST',
+      body: engineFormData
+    })
     
-    const ventasData = ventasComprasParser.parseVentas(ventasBuffer)
-    const comprasData = ventasComprasParser.parseCompras(comprasBuffer)
-    const extractoData = extractoParser.parseExtracto(extractoBuffer)
+    if (!engineResponse.ok) {
+      throw new Error(`Error en motor de conciliación: ${engineResponse.statusText}`)
+    }
     
-    // Convertir datos del parser a formato esperado por el motor
-    const ventasNormalizadas = ventasData.map((v, index) => ({
-      id: `venta_${index}`,
-      fechaEmision: v.fecha,
-      cliente: v.cliente,
-      total: v.total,
-      cuitCliente: v.cuitCliente,
-      tipo: v.tipo,
-      puntoVenta: v.puntoVenta,
-      numero: v.numero,
-      neto: v.neto,
-      iva: v.iva,
-      medioCobro: 'Efectivo',
-      moneda: 'ARS'
-    }))
+    const engineResult = await engineResponse.json()
     
-    const comprasNormalizadas = comprasData.map((c, index) => ({
-      id: `compra_${index}`,
-      fechaEmision: c.fecha,
-      proveedor: c.proveedor,
-      total: c.total,
-      cuitProveedor: c.cuitProveedor,
-      tipo: c.tipo,
-      puntoVenta: c.puntoVenta,
-      numero: c.numero,
-      neto: c.neto,
-      iva: c.iva,
-      medioPago: 'Efectivo',
-      moneda: 'ARS',
-      formaPago: 'Efectivo'
-    }))
+    if (!engineResult.success) {
+      throw new Error(engineResult.error || 'Error en el motor de conciliación')
+    }
     
-    const extractoNormalizado = extractoData.map((e, index) => ({
-      id: `extracto_${index}`,
-      fecha: e.fecha,
-      concepto: e.concepto,
-      importe: e.importe,
-      banco: banco,
-      saldo: e.saldo || 0
-    }))
-    
-    // Ejecutar matching
-    const newResult = await engine.runMatching(
-      ventasNormalizadas,
-      comprasNormalizadas,
-      extractoNormalizado
-    )
+    const newResult = engineResult.data
 
     console.log('✅ Resultado de conciliación:', {
       conciliados: newResult.conciliados,
