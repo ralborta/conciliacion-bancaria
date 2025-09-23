@@ -1,3 +1,6 @@
+// app/dashboard/next-bank/page.tsx - VERSIÓN CORREGIDA
+// Usa el orquestrador mejorado sin reinicializar
+
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -22,74 +25,109 @@ export default function NextBankPage() {
   const [progress, setProgress] = useState(0)
   const [status, setStatus] = useState('')
   
-  // Estado del orquestador multi-banco
-  const [orchestrator] = useState(() => new MultiBankReconciliationOrchestrator())
+  // Estado del banco anterior
   const [multiBankData, setMultiBankData] = useState<any>(null)
-  const [bankCount, setBankCount] = useState(1)
+  const [previousBankInfo, setPreviousBankInfo] = useState<any>(null)
   
-  // Estado para mostrar resultados consolidados
-  const [showResults, setShowResults] = useState(false)
-  const [consolidatedResults, setConsolidatedResults] = useState<any>(null)
+  // Orquestrador singleton (se mantiene entre navegaciones)
+  const [orchestrator] = useState(() => {
+    // Recuperar orquestrador existente o crear uno nuevo
+    if (typeof window !== 'undefined') {
+      const existing = (window as any).multiBankOrchestrator;
+      if (existing) {
+        console.log('♻️ Reutilizando orquestrador existente');
+        return existing;
+      }
+    }
+    
+    const newOrchestrator = new MultiBankReconciliationOrchestrator();
+    if (typeof window !== 'undefined') {
+      (window as any).multiBankOrchestrator = newOrchestrator;
+    }
+    return newOrchestrator;
+  })
 
   const bancoValido = banco !== 'Otro' || (banco === 'Otro' && bancoPersonalizado.trim() !== '')
   const puedeProcesar = extractoFile && bancoValido && periodo
 
   useEffect(() => {
-    const initializeOrchestrator = async () => {
-      // Cargar datos del banco anterior
+    const loadPreviousData = async () => {
+      console.log('📊 Cargando datos del banco anterior...');
+      
+      // Cargar datos del resultado anterior
       const storedData = localStorage.getItem('multiBankData')
       const storedSessionId = localStorage.getItem('multiBankSessionId')
-      
-      console.log('🔄 Inicializando orquestador con datos:', storedData ? 'SÍ' : 'NO')
       
       if (storedData) {
         const data = JSON.parse(storedData)
         setMultiBankData(data)
         
-        // Inicializar el orquestador con los archivos base
-        const ventasFile = localStorage.getItem('ventasFile')
-        const comprasFile = localStorage.getItem('comprasFile')
-        
-        if (ventasFile && comprasFile) {
-          try {
-            // Convertir de base64 a File
-            const ventasBlob = new Blob([atob(ventasFile)], { type: 'text/csv' })
-            const comprasBlob = new Blob([atob(comprasFile)], { type: 'text/csv' })
-            
-            const ventasFileObj = new File([ventasBlob], 'ventas.csv', { type: 'text/csv' })
-            const comprasFileObj = new File([comprasBlob], 'compras.csv', { type: 'text/csv' })
-            
-            // NO reiniciar el orquestador, solo inicializar si es la primera vez
-            if (!orchestrator.isInitialized()) {
-              await orchestrator.initialize(ventasFileObj, comprasFileObj)
-              console.log('✅ Orquestador inicializado correctamente')
-            } else {
-              console.log('✅ Orquestador ya inicializado, continuando...')
-            }
-            
-            // Cargar datos del banco anterior en el orquestador
-            if (data.movements) {
-              // Simular que ya procesamos el primer banco
-              console.log('📊 Cargando datos del banco anterior:', data.movements.length, 'movimientos')
-            }
-          } catch (error) {
-            console.error('❌ Error inicializando orquestador:', error)
-          }
+        // Extraer info del banco anterior
+        if (data.bankSteps && data.bankSteps.length > 0) {
+          const lastBank = data.bankSteps[data.bankSteps.length - 1];
+          setPreviousBankInfo({
+            banco: lastBank.banco || data.banco,
+            conciliadas: lastBank.matchedCount || data.conciliados,
+            pendientes: lastBank.pendingCount || data.pendientes,
+            porcentaje: data.porcentajeConciliado
+          });
         } else {
-          console.error('❌ No se encontraron archivos base en localStorage')
+          // Datos del primer banco
+          setPreviousBankInfo({
+            banco: data.banco,
+            conciliadas: data.conciliados,
+            pendientes: data.pendientes,
+            porcentaje: data.porcentajeConciliado
+          });
+        }
+
+        // **CLAVE: Solo inicializar si NO está inicializado**
+        if (!orchestrator.isInitialized()) {
+          await initializeOrchestrator();
+        } else {
+          console.log('✅ Orquestrador ya inicializado, continuando...');
         }
         
-        // Contar bancos procesados
-        setBankCount(2) // Asumir que ya procesamos 1 banco
       } else {
-        // Si no hay datos, redirigir al dashboard
-        console.log('❌ No hay datos de banco anterior, redirigiendo al dashboard')
+        console.error('❌ No hay datos del banco anterior, redirigiendo...')
         router.push('/dashboard')
       }
     }
 
-    initializeOrchestrator()
+    loadPreviousData()
   }, [orchestrator, router])
+
+  /**
+   * Inicializar el orquestrador SOLO la primera vez
+   */
+  const initializeOrchestrator = async () => {
+    try {
+      console.log('🚀 Inicializando orquestrador...');
+      
+      // Cargar archivos base desde localStorage
+      const ventasFile = localStorage.getItem('ventasFile')
+      const comprasFile = localStorage.getItem('comprasFile')
+      
+      if (!ventasFile || !comprasFile) {
+        throw new Error('No se encontraron archivos base en localStorage');
+      }
+
+      // Convertir base64 a File
+      const ventasBlob = new Blob([atob(ventasFile)], { type: 'text/csv' })
+      const comprasBlob = new Blob([atob(comprasFile)], { type: 'text/csv' })
+      
+      const ventasFileObj = new File([ventasBlob], 'ventas.csv', { type: 'text/csv' })
+      const comprasFileObj = new File([comprasBlob], 'compras.csv', { type: 'text/csv' })
+      
+      // Inicializar orquestrador (solo primera vez)
+      await orchestrator.initialize(ventasFileObj, comprasFileObj)
+      console.log('✅ Orquestrador inicializado correctamente')
+      
+    } catch (error) {
+      console.error('❌ Error inicializando orquestrador:', error)
+      throw error;
+    }
+  }
 
   const handleExtractoUpload = (file: UploadedFile) => {
     setExtractoFile(file)
@@ -99,6 +137,9 @@ export default function NextBankPage() {
     setExtractoFile(null)
   }
 
+  /**
+   * MÉTODO PRINCIPAL: Procesar siguiente banco
+   */
   const processNextBank = async () => {
     if (!puedeProcesar || !extractoFile) return
 
@@ -107,374 +148,241 @@ export default function NextBankPage() {
     setProgress(0)
     
     const steps: ProcessingStep[] = [
-      { id: 'step-1', name: 'Validando archivo del banco', status: 'pending', progress: 25 },
-      { id: 'step-2', name: 'Procesando con transacciones pendientes', status: 'pending', progress: 50 },
-      { id: 'step-3', name: 'Ejecutando conciliación', status: 'pending', progress: 75 },
-      { id: 'step-4', name: 'Generando resultados consolidados', status: 'pending', progress: 100 }
+      { id: 'step-1', name: 'Preparando datos', status: 'pending', progress: 25 },
+      { id: 'step-2', name: 'Procesando con banco siguiente', status: 'pending', progress: 50 },
+      { id: 'step-3', name: 'Consolidando resultados', status: 'pending', progress: 75 },
+      { id: 'step-4', name: 'Generando reporte', status: 'pending', progress: 100 }
     ]
     
     setProcessingSteps(steps)
     
     try {
-      // PASO 1: Validar archivo del banco
+      // PASO 1: Preparar datos
       setCurrentStep(0)
       setProgress(25)
-      setStatus('Validando archivo del banco...')
+      setStatus('Preparando datos pendientes del banco anterior...')
       setProcessingSteps(prev => 
         prev.map((step, index) => ({
           ...step,
           status: index === 0 ? 'processing' : 'pending'
         }))
       )
-      
+
       await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // PASO 2: Procesar con transacciones pendientes
+
+      // PASO 2: Procesar con orquestrador mejorado
       setCurrentStep(1)
       setProgress(50)
-      setStatus('Procesando con transacciones pendientes...')
+      setStatus(`Procesando transacciones pendientes con ${banco}...`)
       setProcessingSteps(prev => 
         prev.map((step, index) => ({
           ...step,
           status: index < 1 ? 'completed' : index === 1 ? 'processing' : 'pending'
         }))
       )
+
+      const bancoFinal = banco === 'Otro' ? bancoPersonalizado : banco;
       
-      // Procesar con la API directamente (como el primer banco)
-      const bancoNombre = banco === 'Otro' ? bancoPersonalizado : banco
-      console.log("🔄 Procesando banco adicional con API:", bancoNombre)
-      
-      // Crear FormData para la API
-      const formData = new FormData()
-      formData.append('ventas', multiBankData.ventasFile || '')
-      formData.append('compras', multiBankData.comprasFile || '')
-      formData.append('extracto', extractoFile.file)
-      formData.append('banco', bancoNombre)
-      formData.append('periodo', periodo)
-      
-      // Llamar a la API
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://conciliacion-bancaria-production.up.railway.app'
-      const response = await fetch(`${apiUrl}/api/conciliation/process`, {
-        method: 'POST',
-        body: formData
-      })
-      
-      if (!response.ok) {
-        throw new Error(`Error HTTP ${response.status}`)
-      }
-      
-      const result = await response.json()
-      if (!result.success) {
-        throw new Error(result.error || 'Error en el procesamiento')
-      }
-      
-      console.log("✅ Banco adicional procesado con API:", result.data)
-      
-      // Simular resultados para compatibilidad
-      const results = result.data.movements || []
-      
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // PASO 3: Ejecutar conciliación
+      console.log('🏦 Procesando banco:', bancoFinal);
+      console.log('📄 Archivo extracto:', extractoFile.file?.name);
+
+      // **USAR MÉTODO CORRECTO DEL ORQUESTRADOR**
+      const result = await orchestrator.continueWithBank(
+        extractoFile.file!,
+        bancoFinal,
+        periodo
+      );
+
+      console.log('✅ Resultado del banco siguiente:', result);
+
+      // PASO 3: Consolidar
       setCurrentStep(2)
       setProgress(75)
-      setStatus('Ejecutando conciliación...')
+      setStatus('Consolidando resultados multi-banco...')
       setProcessingSteps(prev => 
         prev.map((step, index) => ({
           ...step,
           status: index < 2 ? 'completed' : index === 2 ? 'processing' : 'pending'
         }))
       )
-      
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // PASO 4: Generar resultados consolidados
+
+      await new Promise(resolve => setTimeout(resolve, 500))
+
+      // PASO 4: Finalizar
       setCurrentStep(3)
       setProgress(100)
-      setStatus('Generando resultados consolidados...')
+      setStatus('Generando reporte consolidado...')
       setProcessingSteps(prev => 
         prev.map((step, index) => ({
           ...step,
           status: index < 3 ? 'completed' : index === 3 ? 'processing' : 'pending'
         }))
       )
-      
-      // Usar datos de la API directamente
-      const uiData = {
-        totalMovimientos: result.data.totalMovimientos || 0,
-        conciliados: result.data.conciliados || 0,
-        pendientes: result.data.pendientes || 0,
-        porcentajeConciliado: result.data.porcentajeConciliado || 0,
-        montoTotal: result.data.montoTotal || 0,
-        movements: result.data.movements || [],
-        banco: bancoNombre,
-        periodo: periodo,
-        asientos: result.data.asientos || [],
+
+      // Guardar nuevos resultados
+      if (result.success && result.data) {
+        console.log('💾 Guardando resultados actualizados...');
+        localStorage.setItem('conciliationData', JSON.stringify(result.data));
+        localStorage.setItem('multiBankData', JSON.stringify(result.data));
         
-        // Información multi-banco
-        bancosProcesados: 2, // Asumir que ya procesamos 2 bancos
-        bankSteps: [],
-        bancoActual: bancoNombre,
-        isMultiBank: true
+        // Generar nuevo sessionId para estos resultados
+        const newSessionId = `multibank_${Date.now()}`;
+        localStorage.setItem('currentSessionId', newSessionId);
+        localStorage.setItem('multiBankSessionId', newSessionId);
       }
-      
-      console.log("💾 Guardando resultados consolidados:", uiData)
-      
-      // Guardar en localStorage para siguiente banco
-      const sessionId = `multi-bank-${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-      localStorage.setItem('multiBankData', JSON.stringify(uiData))
-      localStorage.setItem('multiBankSessionId', sessionId)
-      localStorage.setItem('conciliationData', JSON.stringify(uiData))
-      localStorage.setItem('currentSessionId', sessionId)
-      
-      // Mostrar resultados consolidados
-      setConsolidatedResults(uiData)
-      setShowResults(true)
-      
-      // Actualizar contador de bancos
-      setBankCount(2)
-      
-      console.log(`✅ Banco ${bancoNombre} procesado con API:`)
-      console.log(`   - Total conciliadas: ${uiData.conciliados}`)
-      console.log(`   - Total pendientes: ${uiData.pendientes}`)
-      console.log(`   - Porcentaje: ${uiData.porcentajeConciliado}%`)
-      
-      // Redirigir a resultados
-      setTimeout(() => {
-        router.push('/dashboard/results')
-      }, 1000)
-      
-      // Datos ya guardados arriba
-      
-      setStatus('Conciliación multi-banco completada')
-      
-      // Redirigir a resultados
-      setTimeout(() => {
-        router.push('/dashboard/results')
-      }, 1000)
+
+      await new Promise(resolve => setTimeout(resolve, 1000))
+
+      // Navegar a resultados
+      const sessionId = localStorage.getItem('currentSessionId');
+      console.log('🎯 Navegando a resultados con sessionId:', sessionId);
+      router.push(`/dashboard/results?sessionId=${sessionId}`)
       
     } catch (error) {
-      console.error('Error en conciliación multi-banco:', error)
-      setStatus('Error en la conciliación')
+      console.error('❌ Error procesando siguiente banco:', error);
+      const errorObj = error as Error;
+      setStatus(`Error: ${errorObj.message}`)
+      
+      // En caso de error, mostrar mensaje útil
+      if (errorObj.message.includes('no inicializado')) {
+        setStatus('Error: Reinicia el proceso desde el dashboard principal');
+      }
+      
     } finally {
       setIsProcessing(false)
     }
   }
 
-  const handleBackToResults = () => {
-    router.push('/dashboard/results')
-  }
-
-  if (!multiBankData) {
-    return (
-      <div className="p-6">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            Cargando datos del banco anterior...
-          </h2>
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">
-            🏦 Agregar Banco #{bankCount}
-          </h2>
-          <p className="text-gray-600">
-            Procesa otro banco con las transacciones pendientes del anterior
-          </p>
-        </div>
-        <button
-          onClick={handleBackToResults}
-          className="px-4 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50 transition-colors"
-        >
-          ← Volver a Resultados
-        </button>
-      </div>
-
-      {/* Resumen del banco anterior */}
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-2">
-          📊 Resumen del Banco Anterior
-        </h3>
-        <div className="grid grid-cols-4 gap-4">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-gray-600">{multiBankData.totalMovimientos || 0}</div>
-            <div className="text-sm text-gray-500">Total Movimientos</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-green-600">{multiBankData.conciliados || 0}</div>
-            <div className="text-sm text-gray-500">Conciliados</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-orange-600">{multiBankData.pendientes || 0}</div>
-            <div className="text-sm text-gray-500">Pendientes</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-blue-600">{multiBankData.porcentajeConciliado || 0}%</div>
-            <div className="text-sm text-gray-500">% Conciliado</div>
-          </div>
-        </div>
-        <div className="mt-3 text-sm text-gray-600">
-          <strong>Transacciones pendientes:</strong> {multiBankData.pendientes || 0} movimientos serán procesados con el nuevo banco
-        </div>
-      </div>
-
-      {/* Formulario de carga */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">
-          Cargar Extracto del Siguiente Banco
-        </h3>
-        
-        <div className="space-y-6">
-          {/* Carga de archivo */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Extracto Bancario
-            </label>
-            <FileUploadZone
-              type="extracto"
-              onFileSelect={handleExtractoUpload}
-              onFileRemove={handleExtractoRemove}
-              selectedFile={extractoFile}
-              accept=".csv,.xlsx,.xls"
-            />
-          </div>
-
-          {/* Selección de banco */}
-          <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Banco
-              </label>
-              <select 
-                value={banco} 
-                onChange={(e) => setBanco(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                {BANCOS.map(banco => (
-                  <option key={banco.id} value={banco.nombre}>
-                    {banco.nombre}
-                  </option>
-                ))}
-              </select>
-              {banco === 'Otro' && (
-                <input
-                  type="text"
-                  placeholder="Ingrese nombre del banco"
-                  value={bancoPersonalizado}
-                  onChange={(e) => setBancoPersonalizado(e.target.value)}
-                  className="w-full mt-2 p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Período (MM-AA)
-              </label>
-              <input
-                type="text"
-                value={periodo}
-                onChange={(e) => setPeriodo(e.target.value)}
-                placeholder="12-23"
-                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-          </div>
-
-          {/* Botón de procesamiento */}
-          <div className="flex justify-end">
-            <button
-              onClick={processNextBank}
-              disabled={!puedeProcesar || isProcessing}
-              className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
-            >
-              {isProcessing ? 'Procesando...' : `Procesar Banco #${bankCount}`}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Resultados consolidados */}
-      {showResults && consolidatedResults && (
-        <div className="mt-8 bg-white border border-gray-200 rounded-lg p-6">
-          <h3 className="text-xl font-semibold text-gray-900 mb-4">
-            📊 Resultados Consolidados
+    <div className="space-y-8">
+      {/* Información del banco anterior */}
+      {previousBankInfo && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
+          <h3 className="text-lg font-semibold text-blue-800 mb-3">
+            📊 Resultado del Banco Anterior
           </h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="text-2xl font-bold text-blue-600">
-                {consolidatedResults.totalMovimientos}
-              </div>
-              <div className="text-sm text-blue-800">Total Movimientos</div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="text-center">
+              <div className="text-sm text-blue-600">Banco Procesado</div>
+              <div className="font-medium text-blue-800">{previousBankInfo.banco}</div>
             </div>
-            
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <div className="text-2xl font-bold text-green-600">
-                {consolidatedResults.conciliados}
-              </div>
-              <div className="text-sm text-green-800">Conciliados</div>
+            <div className="text-center">
+              <div className="text-sm text-blue-600">Conciliadas</div>
+              <div className="text-2xl font-bold text-green-600">{previousBankInfo.conciliadas}</div>
             </div>
-            
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <div className="text-2xl font-bold text-yellow-600">
-                {consolidatedResults.pendientes}
-              </div>
-              <div className="text-sm text-yellow-800">Pendientes</div>
+            <div className="text-center">
+              <div className="text-sm text-blue-600">Pendientes</div>
+              <div className="text-2xl font-bold text-orange-600">{previousBankInfo.pendientes}</div>
             </div>
-            
-            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-              <div className="text-2xl font-bold text-purple-600">
-                {consolidatedResults.porcentajeConciliado.toFixed(1)}%
-              </div>
-              <div className="text-sm text-purple-800">Conciliación</div>
+            <div className="text-center">
+              <div className="text-sm text-blue-600">% Conciliado</div>
+              <div className="text-2xl font-bold text-blue-600">{previousBankInfo.porcentaje?.toFixed(1)}%</div>
             </div>
           </div>
-          
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
-            <h4 className="text-lg font-semibold text-gray-800 mb-2">
-              🏦 Bancos Procesados: {consolidatedResults.bancosProcesados}
-            </h4>
-            <p className="text-gray-600">
-              Banco actual: <strong>{consolidatedResults.bancoActual}</strong>
+          <div className="mt-4 p-3 bg-blue-100 rounded-lg">
+            <p className="text-sm text-blue-700">
+              <strong>Proceso Multi-Banco:</strong> Se procesarán las {previousBankInfo.pendientes} transacciones 
+              pendientes del banco anterior con el nuevo extracto bancario que subas.
             </p>
-          </div>
-          
-          <div className="flex gap-4">
-            <button
-              onClick={() => router.push('/dashboard/results')}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Ver Reporte Completo
-            </button>
-            
-            <button
-              onClick={() => {
-                setShowResults(false)
-                setConsolidatedResults(null)
-                setExtractoFile(null)
-                setPeriodo('')
-              }}
-              className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-            >
-              Procesar Otro Banco
-            </button>
           </div>
         </div>
       )}
 
-      {/* Modal de procesamiento */}
+      {/* Sección de upload del nuevo banco */}
+      <div className="bg-white rounded-xl p-8 shadow-sm">
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            🏦 Agregar Siguiente Banco
+          </h2>
+          <p className="text-gray-500 text-sm">
+            Sube el extracto del siguiente banco para conciliar las transacciones pendientes
+          </p>
+        </div>
+
+        {/* Upload del extracto */}
+        <div className="mb-8">
+          <FileUploadZone
+            type="extracto"
+            onFileSelect={handleExtractoUpload}
+            onFileRemove={handleExtractoRemove}
+            selectedFile={extractoFile}
+            accept=".csv,.xlsx,.xls,.pdf"
+          />
+        </div>
+
+        {/* Configuración del banco */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <div>
+            <label className="block text-sm font-medium text-gray-600 mb-2">
+              Banco:
+            </label>
+            <select 
+              value={banco} 
+              onChange={(e) => setBanco(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded-lg"
+            >
+              {BANCOS.map(b => (
+                <option key={b} value={b}>{b}</option>
+              ))}
+            </select>
+          </div>
+
+          {banco === 'Otro' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-2">
+                Nombre del banco:
+              </label>
+              <input
+                type="text"
+                value={bancoPersonalizado}
+                onChange={(e) => setBancoPersonalizado(e.target.value)}
+                placeholder="Ingrese el nombre del banco"
+                className="w-full p-2 border border-gray-300 rounded-lg"
+              />
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-600 mb-2">
+              Período:
+            </label>
+            <input
+              type="text"
+              value={periodo}
+              onChange={(e) => setPeriodo(e.target.value)}
+              placeholder="ej: Septiembre 2024"
+              className="w-full p-2 border border-gray-300 rounded-lg"
+            />
+          </div>
+        </div>
+
+        {/* Botones de acción */}
+        <div className="flex justify-between items-center">
+          <button
+            onClick={() => router.push('/dashboard/results')}
+            className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+          >
+            ← Volver a Resultados
+          </button>
+
+          <button
+            onClick={processNextBank}
+            disabled={!puedeProcesar || isProcessing}
+            className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+              puedeProcesar && !isProcessing
+                ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            }`}
+          >
+            {isProcessing ? 'Procesando...' : 'Procesar Siguiente Banco'}
+          </button>
+        </div>
+      </div>
+
+      {/* Processing Modal */}
       <ProcessingModal
         isOpen={isProcessing}
-        onClose={() => setIsProcessing(false)}
+        onClose={() => {}}
         steps={processingSteps}
         currentStep={currentStep}
         progress={progress}

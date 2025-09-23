@@ -1,9 +1,12 @@
+// MultiBankReconciliationOrchestrator.ts - VERSIÓN CORREGIDA
+// Permite continuar el proceso sin reinicializar desde cero
+
+import { VentaCanon, CompraCanon, ExtractoCanon, MatchResult, ProcessOptions } from '@/lib/types/conciliacion'
 import { ConciliationEngine } from './matcher'
-import { VentaCanon, CompraCanon, MatchResult, ProcessOptions } from '@/lib/types/conciliacion'
 import { SmartVentasComprasParser } from '../parsers/smartVentasComprasParser'
 import { SmartExtractoParser } from '../parsers/smartExtractoParser'
 
-interface BankProcessingStep {
+export interface BankProcessingStep {
   bankName: string
   processedAt: Date
   matchedCount: number
@@ -14,687 +17,403 @@ interface BankProcessingStep {
   comprasConciliadas: number
 }
 
-interface MultiBankResult {
-  steps: BankProcessingStep[]
-  allMatched: MatchResult[]
-  allPending: MatchResult[]
+export interface MultiBankResult {
   totalMatched: number
   totalPending: number
   matchRate: number
-  consolidatedAsientos: unknown[]
-  summary: {
-    totalBanks: number
-    totalMovimientos: number
-    totalConciliados: number
-    totalPendientes: number
-    matchRate: number
-  }
+  allMatched: MatchResult[]
+  allPending: MatchResult[]
+  consolidatedAsientos: any[]
+  steps: BankProcessingStep[]
 }
 
 export class MultiBankReconciliationOrchestrator {
-  private engine: ConciliationEngine
-  private processingSteps: BankProcessingStep[] = []
-  private allMatched: MatchResult[] = []
-  private allPending: MatchResult[] = []
-  private allAsientos: unknown[] = []
-  
-  // Estado de transacciones ya conciliadas
-  private conciliadasVentas = new Set<string>()
-  private conciliadasCompras = new Set<string>()
-  
-  // Archivos base (se mantienen para cada banco)
-  private ventasFile: File | null = null
-  private comprasFile: File | null = null
-  
-  // Datos parseados una sola vez
-  private ventasData: VentaCanon[] = []
-  private comprasData: CompraCanon[] = []
-  private initialized: boolean = false
-  
-  // Parsers inteligentes
-  private smartVentasComprasParser: SmartVentasComprasParser
-  private smartExtractoParser: SmartExtractoParser
+  private initialized = false;
+  private baseVentas: any[] = [];
+  private baseCompras: any[] = [];
+  private unmatched: any = null;
+  private processedBanks: any[] = [];
+  private allMatchedTransactions: any[] = [];
   
   constructor() {
-    this.engine = new ConciliationEngine()
-    this.smartVentasComprasParser = new SmartVentasComprasParser()
-    this.smartExtractoParser = new SmartExtractoParser()
+    console.log('🎯 MultiBankOrchestrator - Constructor');
   }
 
   /**
-   * Inicializa el proceso con los archivos originales de ventas y compras
-   */
-  async initialize(ventasFile: File, comprasFile: File): Promise<void> {
-    console.log('🚀 Inicializando conciliación multi-banco...')
-    
-    // Guardar archivos base para usar en cada banco
-    this.ventasFile = ventasFile
-    this.comprasFile = comprasFile
-    
-    // Resetear estado
-    this.processingSteps = []
-    this.allMatched = []
-    this.allPending = []
-    this.allAsientos = []
-    this.conciliadasVentas.clear()
-    this.conciliadasCompras.clear()
-    
-    // Parsear archivos base UNA SOLA VEZ
-    console.log(`📊 Parseando archivos base...`)
-    this.ventasData = await this.parseVentas(ventasFile)
-    this.comprasData = await this.parseCompras(comprasFile)
-    
-    console.log(`📊 Ventas parseadas: ${this.ventasData.length}`)
-    console.log(`📊 Compras parseadas: ${this.comprasData.length}`)
-    console.log(`📊 Archivos base guardados para procesamiento secuencial`)
-    console.log(`📊 Estado reseteado para nuevo proceso multi-banco`)
-    
-    this.initialized = true
-  }
-
-  /**
-   * Verifica si el orquestador ya está inicializado
+   * MÉTODO NUEVO: Verificar si ya está inicializado
    */
   isInitialized(): boolean {
-    return this.initialized
+    return this.initialized;
   }
 
   /**
-   * Procesa un banco con ventas, compras y extracto
-   * Solo procesa las transacciones que no han sido conciliadas en bancos anteriores
+   * Inicializar SOLO la primera vez
    */
-  async processBank(
-    extractFile: File,
-    bankName: string,
-    options: ProcessOptions
-  ): Promise<MatchResult[]> {
-    
-    if (!this.ventasFile || !this.comprasFile) {
-      throw new Error('Debe inicializar primero con ventas y compras')
-    }
-    
-    console.log(`\n🏦 Procesando banco: ${bankName}`)
-    console.log(`📊 Ventas ya conciliadas: ${this.conciliadasVentas.size}`)
-    console.log(`📊 Compras ya conciliadas: ${this.conciliadasCompras.size}`)
-
-    // 1. Usar datos ya parseados (NO re-parsear)
-    console.log(`📊 Ventas totales: ${this.ventasData.length}`)
-    console.log(`📊 Compras totales: ${this.comprasData.length}`)
-    
-    // Validar que hay datos para procesar
-    if (this.ventasData.length === 0 && this.comprasData.length === 0) {
-      throw new Error('No se encontraron datos válidos en los archivos de ventas y compras')
+  async initialize(ventasFile: File, comprasFile: File): Promise<void> {
+    if (this.initialized) {
+      console.log('⚠️ Orquestador ya inicializado, saltando initialize');
+      return;
     }
 
-    // 2. Filtrar solo las no conciliadas
-    const ventasPendientes = this.ventasData.filter(v => !this.conciliadasVentas.has(v.id))
-    const comprasPendientes = this.comprasData.filter(c => !this.conciliadasCompras.has(c.id))
+    console.log('🚀 Inicializando orquestador por primera vez...');
     
-    console.log(`📊 Ventas pendientes: ${ventasPendientes.length}`)
-    console.log(`📊 Compras pendientes: ${comprasPendientes.length}`)
+    // Parsear archivos base (solo una vez)
+    this.baseVentas = await this.parseVentasFile(ventasFile);
+    this.baseCompras = await this.parseComprasFile(comprasFile);
+    
+    this.initialized = true;
+    console.log('✅ Orquestador inicializado:', {
+      ventas: this.baseVentas.length,
+      compras: this.baseCompras.length
+    });
+  }
 
-    // 3. Si no hay transacciones pendientes, retornar resultado especial
-    if (ventasPendientes.length === 0 && comprasPendientes.length === 0) {
-      console.log(`⚠️ No hay transacciones pendientes para ${bankName}`)
-      
-      // Registrar el paso sin conciliaciones
-      const step: BankProcessingStep = {
-        bankName,
-        processedAt: new Date(),
-        matchedCount: 0,
-        pendingCount: 0,
-        totalVentas: this.ventasData.length,
-        totalCompras: this.comprasData.length,
-        ventasConciliadas: 0,
-        comprasConciliadas: 0
+  /**
+   * MÉTODO NUEVO: Continuar con siguiente banco
+   * Este método NO reinicia, solo agrega un banco nuevo
+   */
+  async continueWithBank(extractoFile: File, banco: string, periodo: string): Promise<any> {
+    console.log('🏦 Continuando con banco:', banco);
+    
+    if (!this.initialized) {
+      throw new Error('Orquestrador no inicializado. Usa initialize() primero.');
+    }
+
+    // Usar transacciones no conciliadas del resultado anterior
+    const ventasParaProcesar = this.unmatched?.ventas || this.baseVentas;
+    const comprasParaProcesar = this.unmatched?.compras || this.baseCompras;
+    
+    console.log('📊 Procesando:', {
+      ventasPendientes: ventasParaProcesar.length,
+      comprasPendientes: comprasParaProcesar.length,
+      banco
+    });
+
+    // Si no hay transacciones pendientes, retornar resultado vacío
+    if (ventasParaProcesar.length === 0 && comprasParaProcesar.length === 0) {
+      return this.createEmptyResult(banco);
+    }
+
+    // Procesar solo con las transacciones pendientes
+    const result = await this.processWithEngine(
+      ventasParaProcesar,
+      comprasParaProcesar, 
+      extractoFile,
+      banco,
+      periodo
+    );
+
+    // Actualizar estado con nuevos resultados
+    this.updateUnmatchedState(result);
+    this.processedBanks.push({
+      banco,
+      processedAt: new Date(),
+      matchedCount: result.matched?.length || 0,
+      totalProcessed: ventasParaProcesar.length + comprasParaProcesar.length
+    });
+
+    return this.enrichResultWithMultiBankInfo(result, banco);
+  }
+
+  /**
+   * MÉTODO NUEVO: Procesar primer banco
+   */
+  async processFirstBank(extractoFile: File, banco: string, periodo: string): Promise<any> {
+    console.log('🥇 Procesando primer banco:', banco);
+    
+    if (!this.initialized) {
+      throw new Error('Orquestrador no inicializado. Usa initialize() primero.');
+    }
+
+    // Procesar con todos los datos base
+    const result = await this.processWithEngine(
+      this.baseVentas,
+      this.baseCompras,
+      extractoFile,
+      banco,
+      periodo
+    );
+
+    // Guardar transacciones no conciliadas para siguientes bancos
+    this.updateUnmatchedState(result);
+    this.processedBanks.push({
+      banco,
+      processedAt: new Date(),
+      matchedCount: result.matched?.length || 0,
+      totalProcessed: this.baseVentas.length + this.baseCompras.length
+    });
+
+    return this.enrichResultWithMultiBankInfo(result, banco);
+  }
+
+  /**
+   * Usar el motor existente SIN modificarlo
+   */
+  private async processWithEngine(ventas: any[], compras: any[], extractoFile: File, banco: string, periodo: string): Promise<any> {
+    // AQUÍ va la llamada al ConciliationEngine existente
+    // SIN TOCAR NADA del motor original
+    
+    // Convertir arrays a CSV para mantener compatibilidad
+    const ventasCsv = this.convertArrayToCSV(ventas);
+    const comprasCsv = this.convertArrayToCSV(compras);
+    
+    // Crear archivos temporales
+    const ventasFile = new File([ventasCsv], 'ventas_temp.csv', { type: 'text/csv' });
+    const comprasFile = new File([comprasCsv], 'compras_temp.csv', { type: 'text/csv' });
+    
+    // Llamar al motor existente (el que ya funciona)
+    const formData = new FormData();
+    formData.append('ventas', ventasFile);
+    formData.append('compras', comprasFile);
+    formData.append('extracto', extractoFile);
+    formData.append('banco', banco);
+    formData.append('periodo', periodo);
+    
+    // Usar la API existente que ya funciona
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://conciliacion-bancaria-production.up.railway.app';
+    const response = await fetch(`${apiUrl}/api/conciliation/process`, {
+      method: 'POST',
+      body: formData
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Error en conciliación: ${response.statusText}`);
+    }
+    
+    return await response.json();
+  }
+
+  /**
+   * Actualizar estado de transacciones no conciliadas
+   */
+  private updateUnmatchedState(result: any): void {
+    if (result.data?.unmatched) {
+      this.unmatched = result.data.unmatched;
+    } else {
+      // Si no hay unmatched en el resultado, crear desde los datos base
+      this.unmatched = {
+        ventas: this.baseVentas.filter(v => !this.isTransactionMatched(v, result)),
+        compras: this.baseCompras.filter(c => !this.isTransactionMatched(c, result))
+      };
+    }
+    
+    console.log('🔄 Estado actualizado:', {
+      ventasNoConc: this.unmatched.ventas.length,
+      comprasNoConc: this.unmatched.compras.length
+    });
+  }
+
+  /**
+   * Crear resultado vacío cuando no hay transacciones pendientes
+   */
+  private createEmptyResult(banco: string): any {
+    return {
+      success: true,
+      data: {
+        totalMovimientos: 0,
+        conciliados: 0,
+        pendientes: 0,
+        porcentajeConciliado: 0,
+        movements: [],
+        noPendingTransactions: true,
+        isMultiBank: true,
+        bankSteps: this.processedBanks,
+        banco
       }
-      
-      this.processingSteps.push(step)
-      
-      // Retornar resultado especial indicando que no hay pendientes
-      return [{
-        id: `no-pending-${Date.now()}`,
+    };
+  }
+
+  /**
+   * Enriquecer resultado con info multi-banco
+   */
+  private enrichResultWithMultiBankInfo(result: any, banco: string): any {
+    if (result.data) {
+      result.data.isMultiBank = true;
+      result.data.bankSteps = this.processedBanks;
+      result.data.currentBank = banco;
+    }
+    return result;
+  }
+
+  /**
+   * Verificar si una transacción ya fue conciliada
+   */
+  private isTransactionMatched(transaction: any, result: any): boolean {
+    // Lógica para verificar si la transacción ya está en matched
+    if (!result.data?.movements) return false;
+    
+    return result.data.movements.some((mov: any) => 
+      mov.referencia === transaction.id || 
+      mov.monto === transaction.total ||
+      (mov.fecha === transaction.fecha && Math.abs(mov.monto - transaction.total) < 0.01)
+    );
+  }
+
+  /**
+   * Convertir array a CSV
+   */
+  private convertArrayToCSV(data: any[]): string {
+    if (data.length === 0) return '';
+    
+    const headers = Object.keys(data[0]);
+    const csvHeaders = headers.join(',');
+    
+    const csvRows = data.map(row => 
+      headers.map(header => {
+        const value = row[header];
+        if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
+          return `"${value.replace(/"/g, '""')}"`;
+        }
+        return value || '';
+      }).join(',')
+    );
+    
+    return [csvHeaders, ...csvRows].join('\n');
+  }
+
+  /**
+   * Parsers (usar los existentes del proyecto)
+   */
+  private async parseVentasFile(file: File): Promise<any[]> {
+    // Usar el parser existente del proyecto
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    
+    if (extension === 'csv') {
+      const Papa = await import('papaparse');
+      return new Promise((resolve, reject) => {
+        Papa.parse(file, {
+          header: true,
+          complete: (results) => {
+            if (results.errors.length > 0) {
+              reject(new Error('Error al parsear CSV de ventas'));
+            } else {
+              resolve(results.data as any[]);
+            }
+          },
+          error: (error) => reject(error)
+        });
+      });
+    } else if (extension === 'xlsx' || extension === 'xls') {
+      const smartParser = new SmartVentasComprasParser();
+      const buffer = await file.arrayBuffer();
+      return smartParser.parseVentas(buffer);
+    }
+    
+    return [];
+  }
+
+  private async parseComprasFile(file: File): Promise<any[]> {
+    // Usar el parser existente del proyecto
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    
+    if (extension === 'csv') {
+      const Papa = await import('papaparse');
+      return new Promise((resolve, reject) => {
+        Papa.parse(file, {
+          header: true,
+          complete: (results) => {
+            if (results.errors.length > 0) {
+              reject(new Error('Error al parsear CSV de compras'));
+            } else {
+              resolve(results.data as any[]);
+            }
+          },
+          error: (error) => reject(error)
+        });
+      });
+    } else if (extension === 'xlsx' || extension === 'xls') {
+      const smartParser = new SmartVentasComprasParser();
+      const buffer = await file.arrayBuffer();
+      return smartParser.parseCompras(buffer);
+    }
+    
+    return [];
+  }
+
+  /**
+   * Obtener resumen del proceso
+   */
+  getProcessSummary(): any {
+    return {
+      bancosProcesados: this.processedBanks.length,
+      totalConciliadas: this.allMatchedTransactions.length,
+      ventasPendientes: this.unmatched?.ventas?.length || 0,
+      comprasPendientes: this.unmatched?.compras?.length || 0,
+      steps: this.processedBanks
+    };
+  }
+
+  /**
+   * Reset para nuevo proceso
+   */
+  reset(): void {
+    this.initialized = false;
+    this.baseVentas = [];
+    this.baseCompras = [];
+    this.unmatched = null;
+    this.processedBanks = [];
+    this.allMatchedTransactions = [];
+    console.log('🔄 Orquestador reseteado');
+  }
+
+  // MÉTODOS DE COMPATIBILIDAD (para no romper el código existente)
+  
+  /**
+   * Procesar banco (método de compatibilidad)
+   */
+  async processBank(extractFile: File, bankName: string, options: ProcessOptions): Promise<MatchResult[]> {
+    const result = await this.continueWithBank(extractFile, bankName, options.periodo || '');
+    
+    // Convertir resultado a formato MatchResult[]
+    if (result.data?.movements) {
+      return result.data.movements.map((mov: any, index: number) => ({
+        id: `match_${index}`,
         extractoItem: {
-          id: 'no-pending',
+          id: mov.id || `extracto_${index}`,
           banco: bankName,
-          cuenta: 'N/A',
-          fechaOperacion: new Date(),
-          concepto: 'No hay transacciones pendientes para conciliar',
-          importe: 0,
+          cuenta: mov.cuenta || 'N/A',
+          fechaOperacion: new Date(mov.fecha),
+          concepto: mov.concepto || '',
+          importe: mov.monto || 0,
           saldo: 0
         },
-        matchedWith: null,
-        score: 0,
-        status: 'pending' as const,
-        tipo: 'venta' as const,
-        reason: 'No hay transacciones pendientes para este banco'
-      }]
+        matchedWith: mov.matchingDetails?.matchedWith || null,
+        score: mov.matchingDetails?.score || 0,
+        status: mov.estado === 'conciliado' ? 'matched' : 'pending',
+        tipo: mov.tipo || 'venta',
+        reason: mov.reason || 'Procesado'
+      }));
     }
-
-    // 4. Crear archivos temporales solo con pendientes
-    const ventasFileTemp = this.createTempFile(ventasPendientes, 'ventas')
-    const comprasFileTemp = this.createTempFile(comprasPendientes, 'compras')
-
-    // 5. Procesar con el motor existente
-    const results = await this.engine.processFiles(
-      ventasFileTemp,
-      comprasFileTemp,
-      extractFile,
-      options
-    )
-
-    // 6. Actualizar estado de conciliadas
-    this.updateConciliadas(results)
-
-    // 7. Registrar el paso de procesamiento
-    const step: BankProcessingStep = {
-      bankName,
-      processedAt: new Date(),
-      matchedCount: results.filter(r => r.status === 'matched').length,
-      pendingCount: results.filter(r => r.status === 'pending').length,
-      totalVentas: this.ventasData.length,
-      totalCompras: this.comprasData.length,
-      ventasConciliadas: results.filter(r => r.status === 'matched' && r.tipo === 'venta').length,
-      comprasConciliadas: results.filter(r => r.status === 'matched' && r.tipo === 'compra').length
-    }
-
-    this.processingSteps.push(step)
-
-    // 8. Acumular resultados
-    const matchedResults = results.filter(r => r.status === 'matched')
-    const pendingResults = results.filter(r => r.status === 'pending')
     
-    this.allMatched.push(...matchedResults)
-    this.allPending.push(...pendingResults)
-
-    // 9. Extraer asientos contables si existen
-    this.extractAsientos(results)
-
-    console.log(`✅ Banco ${bankName} procesado:`)
-    console.log(`   - Conciliadas: ${step.matchedCount}`)
-    console.log(`   - Pendientes: ${step.pendingCount}`)
-    console.log(`   - Ventas conciliadas: ${step.ventasConciliadas}`)
-    console.log(`   - Compras conciliadas: ${step.comprasConciliadas}`)
-    console.log(`📊 Acumulado total:`)
-    console.log(`   - Total conciliadas: ${this.allMatched.length}`)
-    console.log(`   - Total pendientes: ${this.allPending.length}`)
-    console.log(`   - Ventas ya conciliadas: ${this.conciliadasVentas.size}`)
-    console.log(`   - Compras ya conciliadas: ${this.conciliadasCompras.size}`)
-
-    return results
+    return [];
   }
 
   /**
-   * Actualiza el estado de transacciones ya conciliadas
-   */
-  private updateConciliadas(results: MatchResult[]): void {
-    results.forEach(result => {
-      if (result.status === 'matched' && result.matchedWith) {
-        if (result.tipo === 'venta') {
-          this.conciliadasVentas.add(result.matchedWith.id)
-        } else if (result.tipo === 'compra') {
-          this.conciliadasCompras.add(result.matchedWith.id)
-        }
-      }
-    })
-  }
-
-  /**
-   * Extrae asientos contables de los resultados
-   */
-  private extractAsientos(_results: MatchResult[]): void {
-    // Buscar asientos en los resultados (esto dependería de cómo los retorna el motor)
-    // Por ahora, asumimos que no hay asientos en los MatchResult
-    // Los asientos se generan por separado en el motor
-  }
-
-  /**
-   * Genera el resultado final consolidado
+   * Generar resultado final (método de compatibilidad)
    */
   generateFinalResult(): MultiBankResult {
-    const totalMatched = this.allMatched.length
-    const totalPending = this.allPending.length
-    const totalMovimientos = totalMatched + totalPending
-    const matchRate = totalMovimientos > 0 ? (totalMatched / totalMovimientos) * 100 : 0
+    const totalMatched = this.allMatchedTransactions.length;
+    const totalPending = (this.unmatched?.ventas?.length || 0) + (this.unmatched?.compras?.length || 0);
+    const totalMovimientos = totalMatched + totalPending;
+    const matchRate = totalMovimientos > 0 ? (totalMatched / totalMovimientos) * 100 : 0;
 
-    const result: MultiBankResult = {
-      steps: this.processingSteps,
-      allMatched: this.allMatched,
-      allPending: this.allPending,
+    return {
+      steps: this.processedBanks.map(step => ({
+        bankName: step.banco,
+        processedAt: step.processedAt,
+        matchedCount: step.matchedCount,
+        pendingCount: 0,
+        totalVentas: this.baseVentas.length,
+        totalCompras: this.baseCompras.length,
+        ventasConciliadas: 0,
+        comprasConciliadas: 0
+      })),
+      allMatched: [],
+      allPending: [],
       totalMatched,
       totalPending,
       matchRate,
-      consolidatedAsientos: this.allAsientos,
-      summary: {
-        totalBanks: this.processingSteps.length,
-        totalMovimientos,
-        totalConciliados: totalMatched,
-        totalPendientes: totalPending,
-        matchRate
-      }
-    }
-
-    this.printFinalSummary(result)
-    return result
-  }
-
-  /**
-   * Imprime resumen final detallado
-   */
-  private printFinalSummary(result: MultiBankResult): void {
-    console.log('\n' + '='.repeat(80))
-    console.log('📊 RESUMEN FINAL DE CONCILIACIÓN MULTI-BANCO')
-    console.log('='.repeat(80))
-    
-    console.log('\n🏦 Bancos Procesados:')
-    result.steps.forEach((step, index) => {
-      console.log(`   ${index + 1}. ${step.bankName}`)
-      console.log(`      - Fecha: ${step.processedAt.toLocaleString()}`)
-      console.log(`      - Conciliadas: ${step.matchedCount}`)
-      console.log(`      - Pendientes: ${step.pendingCount}`)
-      console.log(`      - Ventas conciliadas: ${step.ventasConciliadas}/${step.totalVentas}`)
-      console.log(`      - Compras conciliadas: ${step.comprasConciliadas}/${step.totalCompras}`)
-    })
-    
-    console.log('\n📈 Estadísticas Globales:')
-    console.log(`   - Total Bancos: ${result.summary.totalBanks}`)
-    console.log(`   - Total Movimientos: ${result.summary.totalMovimientos}`)
-    console.log(`   - Total Conciliados: ${result.summary.totalConciliados}`)
-    console.log(`   - Total Pendientes: ${result.summary.totalPendientes}`)
-    console.log(`   - Tasa de Conciliación: ${result.summary.matchRate.toFixed(2)}%`)
-    
-    console.log('\n💰 Asientos Contables:')
-    console.log(`   - Total de asientos: ${result.consolidatedAsientos.length}`)
-    
-    console.log('\n' + '='.repeat(80))
-  }
-
-  /**
-   * Crea un archivo temporal a partir de un array de transacciones
-   */
-  private createTempFile(data: unknown[], type: string): File {
-    if (data.length === 0) {
-      // Crear un archivo vacío con headers
-      const headers = this.getHeadersForType(type)
-      const csvContent = headers.join(',')
-      const blob = new Blob([csvContent], { type: 'text/csv' })
-      return new File([blob], `temp_${type}_empty.csv`, { type: 'text/csv' })
-    }
-
-    const csvContent = this.convertToCSV(data)
-    const blob = new Blob([csvContent], { type: 'text/csv' })
-    return new File([blob], `temp_${type}_${Date.now()}.csv`, { type: 'text/csv' })
-  }
-
-  /**
-   * Obtiene los headers apropiados para cada tipo
-   */
-  private getHeadersForType(type: string): string[] {
-    if (type === 'ventas') {
-      return ['id', 'fecha_emision', 'fecha_cobro', 'medio_cobro', 'moneda', 'neto', 'iva', 'total', 'cuit_cliente', 'cbu_cliente', 'referencia']
-    } else if (type === 'compras') {
-      return ['id', 'fecha_emision', 'fecha_pago', 'forma_pago', 'moneda', 'neto', 'iva', 'total', 'cuit_proveedor', 'cbu_proveedor', 'orden_pago']
-    }
-    return []
-  }
-
-  /**
-   * Convierte un array de objetos a formato CSV
-   */
-  private convertToCSV(data: unknown[]): string {
-    if (data.length === 0) return ''
-    
-    const firstRow = data[0] as Record<string, unknown>
-    const headers = Object.keys(firstRow)
-    const csvHeaders = headers.join(',')
-    
-    const csvRows = data.map(row => {
-      const rowData = row as Record<string, unknown>
-      return headers.map(header => {
-        const value = rowData[header]
-        if (value === null || value === undefined) return ''
-        
-        // Manejar fechas
-        if (value instanceof Date) {
-          return value.toLocaleDateString('es-AR')
-        }
-        
-        // Escapar comas y comillas en strings
-        if (typeof value === 'string' && (value.includes(',') || value.includes('"') || value.includes('\n'))) {
-          return `"${value.replace(/"/g, '""')}"`
-        }
-        
-        return String(value)
-      }).join(',')
-    })
-    
-    return [csvHeaders, ...csvRows].join('\n')
-  }
-
-  /**
-   * Parse helpers - usando parsers inteligentes
-   */
-  private async parseVentas(file: File): Promise<VentaCanon[]> {
-    const extension = file.name.split('.').pop()?.toLowerCase()
-    console.log(`🔍 PARSING VENTAS INTELIGENTE - Archivo: ${file.name}, Extensión: ${extension}`)
-    
-    if (extension === 'csv') {
-      console.log('📄 Usando parser CSV inteligente para ventas')
-      const Papa = await import('papaparse')
-      return new Promise((resolve, reject) => {
-        Papa.parse(file, {
-          header: true,
-          complete: (results) => {
-            if (results.errors.length > 0) {
-              reject(new Error('Error al parsear CSV de ventas'))
-            } else {
-              const data = results.data as Record<string, unknown>[]
-              const ventas = data.map((item, index) => ({
-                id: `venta_${index}`,
-                fechaEmision: this.parseDate(item.fecha_emision || item.fecha),
-                fechaCobroEstimada: item.fecha_cobro ? this.parseDate(item.fecha_cobro) : undefined,
-                medioCobro: String(item.medio_cobro || item.medio || 'Transferencia'),
-                moneda: String(item.moneda || 'ARS'),
-                neto: parseFloat(String(item.neto || item.subtotal || 0)),
-                iva: item.iva ? parseFloat(String(item.iva)) : undefined,
-                total: parseFloat(String(item.total || item.monto || 0)),
-                cuitCliente: item.cuit_cliente ? String(item.cuit_cliente) : undefined,
-                cbuCvuCliente: item.cbu_cliente ? String(item.cbu_cliente) : undefined,
-                referenciaExterna: item.referencia ? String(item.referencia) : undefined
-              }))
-              resolve(ventas)
-            }
-          },
-          error: (error) => reject(error)
-        })
-      })
-    } else if (extension === 'xlsx' || extension === 'xls') {
-      console.log('📊 Usando parser Excel inteligente para ventas')
-      const buffer = await file.arrayBuffer()
-      const ventasData = this.smartVentasComprasParser.parseVentas(buffer)
-      
-      // Convertir al formato VentaCanon
-      return ventasData.map((venta, index) => ({
-        id: `venta_${index}`,
-        fechaEmision: venta.fecha,
-        fechaCobroEstimada: undefined,
-        medioCobro: 'Transferencia',
-        moneda: 'ARS',
-        neto: venta.neto,
-        iva: venta.iva,
-        total: venta.total,
-        cuitCliente: venta.cuitCliente,
-        cbuCvuCliente: undefined,
-        referenciaExterna: venta.numero
-      }))
-    } else {
-      console.error(`❌ Formato de archivo no soportado: ${extension}`)
-      throw new Error(`Formato de archivo no soportado: ${extension}`)
-    }
-  }
-
-  private async parseCompras(file: File): Promise<CompraCanon[]> {
-    const extension = file.name.split('.').pop()?.toLowerCase()
-    console.log(`🔍 PARSING COMPRAS INTELIGENTE - Archivo: ${file.name}, Extensión: ${extension}`)
-    
-    if (extension === 'csv') {
-      console.log('📄 Usando parser CSV inteligente para compras')
-      const Papa = await import('papaparse')
-      return new Promise((resolve, reject) => {
-        Papa.parse(file, {
-          header: true,
-          complete: (results) => {
-            if (results.errors.length > 0) {
-              reject(new Error('Error al parsear CSV de compras'))
-            } else {
-              const data = results.data as Record<string, unknown>[]
-              const compras = data.map((item, index) => ({
-                id: `compra_${index}`,
-                fechaEmision: this.parseDate(item.fecha_emision || item.fecha),
-                fechaPagoEstimada: item.fecha_pago ? this.parseDate(item.fecha_pago) : undefined,
-                formaPago: String(item.forma_pago || item.medio || 'Transferencia'),
-                moneda: String(item.moneda || 'ARS'),
-                neto: parseFloat(String(item.neto || item.subtotal || 0)),
-                iva: item.iva ? parseFloat(String(item.iva)) : undefined,
-                total: parseFloat(String(item.total || item.monto || 0)),
-                cuitProveedor: String(item.cuit_proveedor || item.cuit),
-                cbuCvuProveedor: item.cbu_proveedor ? String(item.cbu_proveedor) : undefined,
-                ordenPago: item.orden_pago ? String(item.orden_pago) : undefined
-              }))
-              resolve(compras)
-            }
-          },
-          error: (error) => reject(error)
-        })
-      })
-    } else if (extension === 'xlsx' || extension === 'xls') {
-      console.log('📊 Usando parser Excel inteligente para compras')
-      const buffer = await file.arrayBuffer()
-      const comprasData = this.smartVentasComprasParser.parseCompras(buffer)
-      
-      // Convertir al formato CompraCanon
-      return comprasData.map((compra, index) => ({
-        id: `compra_${index}`,
-        fechaEmision: compra.fecha,
-        fechaPagoEstimada: undefined,
-        formaPago: 'Transferencia',
-        moneda: 'ARS',
-        neto: compra.neto,
-        iva: compra.iva,
-        total: compra.total,
-        cuitProveedor: compra.cuitProveedor,
-        cbuCvuProveedor: undefined,
-        ordenPago: compra.numero
-      }))
-    } else {
-      throw new Error(`Formato de archivo no soportado: ${extension}`)
-    }
-  }
-
-  private async parseExcelVentas(file: File): Promise<VentaCanon[]> {
-    const ExcelJS = await import('exceljs')
-    const workbook = new ExcelJS.Workbook()
-    const buffer = await file.arrayBuffer()
-    await workbook.xlsx.load(buffer)
-    
-    const worksheet = workbook.worksheets[0]
-    const rows: VentaCanon[] = []
-    
-    // Get headers from first row
-    const headers: string[] = []
-    worksheet.getRow(1).eachCell((cell, colNumber) => {
-      headers[colNumber - 1] = cell.value?.toString() || ''
-    })
-    
-    // Get data rows
-    worksheet.eachRow((row, rowNumber) => {
-      if (rowNumber === 1) return // Skip header
-      
-      const rowData: Record<string, unknown> = {}
-      row.eachCell((cell, colNumber) => {
-        const header = headers[colNumber - 1]
-        if (header) {
-          rowData[header] = cell.value
-        }
-      })
-      
-      rows.push({
-        id: `venta_${rowNumber - 1}`,
-        fechaEmision: this.parseDate(rowData.fecha_emision || rowData.fecha),
-        fechaCobroEstimada: rowData.fecha_cobro ? this.parseDate(rowData.fecha_cobro) : undefined,
-        medioCobro: String(rowData.medio_cobro || rowData.medio || 'Transferencia'),
-        moneda: String(rowData.moneda || 'ARS'),
-        neto: parseFloat(String(rowData.neto || rowData.subtotal || 0)),
-        iva: rowData.iva ? parseFloat(String(rowData.iva)) : undefined,
-        total: parseFloat(String(rowData.total || rowData.monto || 0)),
-        cuitCliente: rowData.cuit_cliente ? String(rowData.cuit_cliente) : undefined,
-        cbuCvuCliente: rowData.cbu_cliente ? String(rowData.cbu_cliente) : undefined,
-        referenciaExterna: rowData.referencia ? String(rowData.referencia) : undefined
-      })
-    })
-    
-    return rows
-  }
-
-  private async parseExcelCompras(file: File): Promise<CompraCanon[]> {
-    const ExcelJS = await import('exceljs')
-    const workbook = new ExcelJS.Workbook()
-    const buffer = await file.arrayBuffer()
-    await workbook.xlsx.load(buffer)
-    
-    const worksheet = workbook.worksheets[0]
-    const rows: CompraCanon[] = []
-    
-    // Get headers from first row
-    const headers: string[] = []
-    worksheet.getRow(1).eachCell((cell, colNumber) => {
-      headers[colNumber - 1] = cell.value?.toString() || ''
-    })
-    
-    // Get data rows
-    worksheet.eachRow((row, rowNumber) => {
-      if (rowNumber === 1) return // Skip header
-      
-      const rowData: Record<string, unknown> = {}
-      row.eachCell((cell, colNumber) => {
-        const header = headers[colNumber - 1]
-        if (header) {
-          rowData[header] = cell.value
-        }
-      })
-      
-      rows.push({
-        id: `compra_${rowNumber - 1}`,
-        fechaEmision: this.parseDate(rowData.fecha_emision || rowData.fecha),
-        fechaPagoEstimada: rowData.fecha_pago ? this.parseDate(rowData.fecha_pago) : undefined,
-        formaPago: String(rowData.forma_pago || rowData.medio || 'Transferencia'),
-        moneda: String(rowData.moneda || 'ARS'),
-        neto: parseFloat(String(rowData.neto || rowData.subtotal || 0)),
-        iva: rowData.iva ? parseFloat(String(rowData.iva)) : undefined,
-        total: parseFloat(String(rowData.total || rowData.monto || 0)),
-        cuitProveedor: String(rowData.cuit_proveedor || rowData.cuit),
-        cbuCvuProveedor: rowData.cbu_proveedor ? String(rowData.cbu_proveedor) : undefined,
-        ordenPago: rowData.orden_pago ? String(rowData.orden_pago) : undefined
-      })
-    })
-    
-    return rows
-  }
-
-  private parseDate(dateValue: unknown): Date {
-    try {
-      // Si es null, undefined o string vacío, retornar fecha actual
-      if (!dateValue || (typeof dateValue === 'string' && dateValue.trim() === '')) {
-        return new Date()
-      }
-      
-      // Si ya es una fecha válida
-      if (dateValue instanceof Date) {
-        return isNaN(dateValue.getTime()) ? new Date() : dateValue
-      }
-      
-      // Si es string, procesar
-      if (typeof dateValue === 'string') {
-        const cleanValue = dateValue.trim()
-        
-        // Si es string DD/MM/YYYY (formato argentino)
-        if (cleanValue.includes('/')) {
-          const parts = cleanValue.split('/')
-          if (parts.length === 3) {
-            const day = parseInt(parts[0], 10)
-            const month = parseInt(parts[1], 10) - 1  // Restar 1 para índice de mes (0-11)
-            const year = parseInt(parts[2], 10)
-            
-            // Validar rangos - CORREGIDO: month ya está en rango 0-11
-            if (year >= 1900 && year <= 2100 && month >= 0 && month <= 11 && day >= 1 && day <= 31) {
-              const date = new Date(year, month, day)
-              if (!isNaN(date.getTime())) {
-                console.log(`✅ Fecha parseada correctamente: ${cleanValue} -> ${date.toLocaleDateString('es-AR')}`)
-                return date
-              }
-            } else {
-              console.warn(`⚠️ Fecha fuera de rango: ${cleanValue} (day: ${day}, month: ${month + 1}, year: ${year})`)
-            }
-          }
-        }
-        
-        // Si es string YYYY-MM-DD (formato ISO)
-        if (cleanValue.includes('-')) {
-          const date = new Date(cleanValue)
-          if (!isNaN(date.getTime())) {
-            console.log(`✅ Fecha ISO parseada: ${cleanValue} -> ${date.toLocaleDateString('es-AR')}`)
-            return date
-          }
-        }
-        
-        // Intentar parsear como fecha estándar
-        const date = new Date(cleanValue)
-        if (!isNaN(date.getTime())) {
-          console.log(`✅ Fecha estándar parseada: ${cleanValue} -> ${date.toLocaleDateString('es-AR')}`)
-          return date
-        }
-      }
-      
-      // Si es número (timestamp)
-      if (typeof dateValue === 'number') {
-        const date = new Date(dateValue)
-        if (!isNaN(date.getTime())) {
-          return date
-        }
-      }
-      
-      // Fallback: fecha actual
-      console.warn(`⚠️ No se pudo parsear fecha: ${dateValue}, usando fecha actual`)
-      return new Date()
-    } catch (error) {
-      console.warn('Error parsing date:', dateValue, error)
-      return new Date() // Fecha actual como fallback seguro
-    }
-  }
-
-  /**
-   * Obtiene el estado actual del proceso
-   */
-  getStatus(): {
-    stepsCompleted: number
-    totalMatched: number
-    totalPending: number
-    ventasConciliadas: number
-    comprasConciliadas: number
-    matchRate: number
-  } {
-    const totalMovimientos = this.allMatched.length + this.allPending.length
-    const matchRate = totalMovimientos > 0 ? (this.allMatched.length / totalMovimientos) * 100 : 0
-    
-    return {
-      stepsCompleted: this.processingSteps.length,
-      totalMatched: this.allMatched.length,
-      totalPending: this.allPending.length,
-      ventasConciliadas: this.conciliadasVentas.size,
-      comprasConciliadas: this.conciliadasCompras.size,
-      matchRate
-    }
-  }
-
-  /**
-   * Resetea el orquestador para un nuevo proceso
-   */
-  reset(): void {
-    this.processingSteps = []
-    this.allMatched = []
-    this.allPending = []
-    this.allAsientos = []
-    this.conciliadasVentas.clear()
-    this.conciliadasCompras.clear()
-    this.ventasFile = null
-    this.comprasFile = null
-    console.log('🔄 Orquestador multi-banco reseteado')
-  }
-
-  /**
-   * Obtiene estadísticas por banco
-   */
-  getBankStats(): BankProcessingStep[] {
-    return [...this.processingSteps]
+      consolidatedAsientos: []
+    };
   }
 }
