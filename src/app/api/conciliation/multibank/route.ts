@@ -89,13 +89,26 @@ export async function POST(req: NextRequest) {
     // Usar el motor de conciliación existente (SIN TOCAR)
     const engine = new ConciliationEngine()
     
-    const newResult = await engine.process({
-      ventasFile,
-      comprasFile,
-      extractoFile,
-      banco,
-      periodo
-    })
+    // Parsear archivos con el parser inteligente
+    const ventasBuffer = await ventasFile.arrayBuffer()
+    const comprasBuffer = await comprasFile.arrayBuffer()
+    const extractoBuffer = await extractoFile.arrayBuffer()
+    
+    const ventasData = engine.parseVentas(ventasBuffer)
+    const comprasData = engine.parseCompras(comprasBuffer)
+    const extractoData = engine.parseExtracto(extractoBuffer)
+    
+    // Normalizar datos
+    const ventasNormalizadas = engine.normalizeVentas(ventasData)
+    const comprasNormalizadas = engine.normalizeCompras(comprasData)
+    const extractoNormalizado = engine.normalizeExtracto(extractoData)
+    
+    // Ejecutar matching
+    const newResult = await engine.runMatching(
+      ventasNormalizadas,
+      comprasNormalizadas,
+      extractoNormalizado
+    )
 
     console.log('✅ Resultado de conciliación:', {
       conciliados: newResult.conciliados,
