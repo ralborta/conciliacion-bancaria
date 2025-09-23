@@ -1,8 +1,24 @@
 import { VentaCanon, CompraCanon, ExtractoCanon, MatchResult, ProcessOptions, MatchingRules } from '@/lib/types/conciliacion'
 import { ArgentinaMatchingEngine } from './argentinaMatcher'
 import { excelDateToJSDate, extractCUITFromConcept, extractSupplierName } from './bankFormats'
+import { SmartExtractoParser } from '../parsers/smartExtractoParser'
 
 export class ConciliationEngine {
+  private smartExtractoParser: SmartExtractoParser
+  
+  constructor(rules?: Partial<MatchingRules>) {
+    this.rules = {
+      exactMatch: true,
+      fuzzyMatch: true,
+      dateTolerance: 3,
+      amountTolerance: 0.01, // 1%
+      cbuMatch: true,
+      cuitMatch: true,
+      ...rules
+    }
+    this.smartExtractoParser = new SmartExtractoParser()
+  }
+  
   // AGREGAR ESTA FUNCIÓN AL INICIO DE matcher.ts
   private parseDate(dateValue: any): Date {
     try {
@@ -41,18 +57,6 @@ export class ConciliationEngine {
     }
   }
   private rules: MatchingRules
-
-  constructor(rules?: Partial<MatchingRules>) {
-    this.rules = {
-      exactMatch: true,
-      fuzzyMatch: true,
-      dateTolerance: 3,
-      amountTolerance: 0.01, // 1%
-      cbuMatch: true,
-      cuitMatch: true,
-      ...rules
-    }
-  }
 
   async processFiles(
     ventas: File,
@@ -115,6 +119,25 @@ export class ConciliationEngine {
   }
 
   private async parseExcel(file: File): Promise<Record<string, unknown>[]> {
+    console.log('📊 PARSING EXCEL CON PARSER INTELIGENTE')
+    
+    // Determinar si es extracto bancario por el nombre del archivo
+    const fileName = file.name.toLowerCase()
+    const isExtracto = fileName.includes('extracto') || fileName.includes('movimiento') || fileName.includes('banco')
+    
+    if (isExtracto) {
+      console.log('🏦 Detectado como extracto bancario, usando parser inteligente')
+      const buffer = await file.arrayBuffer()
+      const extractoData = this.smartExtractoParser.parseExtracto(buffer)
+      
+      // Marcar como datos de Excel para el normalizador
+      return extractoData.map(item => ({
+        ...item,
+        _isExcelData: true
+      }))
+    }
+    
+    // Para ventas/compras, usar el método original
     const ExcelJS = await import('exceljs')
     const workbook = new ExcelJS.Workbook()
     const buffer = await file.arrayBuffer()
@@ -179,6 +202,16 @@ export class ConciliationEngine {
   }
 
   private normalizeExtracto(data: Record<string, unknown>[], banco: string): ExtractoCanon[] {
+    console.log('🔍 NORMALIZANDO EXTRACTO CON PARSER INTELIGENTE')
+    
+    // Si es un archivo Excel, usar el parser inteligente
+    if (data.length > 0 && data[0]._isExcelData) {
+      console.log('📊 Usando parser inteligente para extracto Excel')
+      // El parser inteligente ya devuelve el formato correcto
+      return data as ExtractoCanon[]
+    }
+    
+    // Fallback al método original para CSV
     const bancoConfig = this.getBancoConfig(banco)
     
     return data.map((item, index) => {

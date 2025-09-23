@@ -1,5 +1,7 @@
 import { ConciliationEngine } from './matcher'
 import { VentaCanon, CompraCanon, MatchResult, ProcessOptions } from '@/lib/types/conciliacion'
+import { SmartVentasComprasParser } from '../parsers/smartVentasComprasParser'
+import { SmartExtractoParser } from '../parsers/smartExtractoParser'
 
 interface BankProcessingStep {
   bankName: string
@@ -44,8 +46,14 @@ export class MultiBankReconciliationOrchestrator {
   private ventasFile: File | null = null
   private comprasFile: File | null = null
   
+  // Parsers inteligentes
+  private smartVentasComprasParser: SmartVentasComprasParser
+  private smartExtractoParser: SmartExtractoParser
+  
   constructor() {
     this.engine = new ConciliationEngine()
+    this.smartVentasComprasParser = new SmartVentasComprasParser()
+    this.smartExtractoParser = new SmartExtractoParser()
   }
 
   /**
@@ -346,14 +354,14 @@ export class MultiBankReconciliationOrchestrator {
   }
 
   /**
-   * Parse helpers - reutilizan la lógica del motor existente
+   * Parse helpers - usando parsers inteligentes
    */
   private async parseVentas(file: File): Promise<VentaCanon[]> {
     const extension = file.name.split('.').pop()?.toLowerCase()
-    console.log(`🔍 PARSING VENTAS - Archivo: ${file.name}, Extensión: ${extension}`)
+    console.log(`🔍 PARSING VENTAS INTELIGENTE - Archivo: ${file.name}, Extensión: ${extension}`)
     
     if (extension === 'csv') {
-      console.log('📄 Usando parser CSV para ventas')
+      console.log('📄 Usando parser CSV inteligente para ventas')
       const Papa = await import('papaparse')
       return new Promise((resolve, reject) => {
         Papa.parse(file, {
@@ -383,8 +391,24 @@ export class MultiBankReconciliationOrchestrator {
         })
       })
     } else if (extension === 'xlsx' || extension === 'xls') {
-      console.log('📊 Usando parser Excel para ventas')
-      return this.parseExcelVentas(file)
+      console.log('📊 Usando parser Excel inteligente para ventas')
+      const buffer = await file.arrayBuffer()
+      const ventasData = this.smartVentasComprasParser.parseVentas(buffer)
+      
+      // Convertir al formato VentaCanon
+      return ventasData.map((venta, index) => ({
+        id: `venta_${index}`,
+        fechaEmision: venta.fecha,
+        fechaCobroEstimada: undefined,
+        medioCobro: 'Transferencia',
+        moneda: 'ARS',
+        neto: venta.neto,
+        iva: venta.iva,
+        total: venta.total,
+        cuitCliente: venta.cuitCliente,
+        cbuCvuCliente: undefined,
+        referenciaExterna: venta.numero
+      }))
     } else {
       console.error(`❌ Formato de archivo no soportado: ${extension}`)
       throw new Error(`Formato de archivo no soportado: ${extension}`)
@@ -393,8 +417,10 @@ export class MultiBankReconciliationOrchestrator {
 
   private async parseCompras(file: File): Promise<CompraCanon[]> {
     const extension = file.name.split('.').pop()?.toLowerCase()
+    console.log(`🔍 PARSING COMPRAS INTELIGENTE - Archivo: ${file.name}, Extensión: ${extension}`)
     
     if (extension === 'csv') {
+      console.log('📄 Usando parser CSV inteligente para compras')
       const Papa = await import('papaparse')
       return new Promise((resolve, reject) => {
         Papa.parse(file, {
@@ -424,7 +450,24 @@ export class MultiBankReconciliationOrchestrator {
         })
       })
     } else if (extension === 'xlsx' || extension === 'xls') {
-      return this.parseExcelCompras(file)
+      console.log('📊 Usando parser Excel inteligente para compras')
+      const buffer = await file.arrayBuffer()
+      const comprasData = this.smartVentasComprasParser.parseCompras(buffer)
+      
+      // Convertir al formato CompraCanon
+      return comprasData.map((compra, index) => ({
+        id: `compra_${index}`,
+        fechaEmision: compra.fecha,
+        fechaPagoEstimada: undefined,
+        formaPago: 'Transferencia',
+        moneda: 'ARS',
+        neto: compra.neto,
+        iva: compra.iva,
+        total: compra.total,
+        cuitProveedor: compra.cuitProveedor,
+        cbuCvuProveedor: undefined,
+        ordenPago: compra.numero
+      }))
     } else {
       throw new Error(`Formato de archivo no soportado: ${extension}`)
     }
