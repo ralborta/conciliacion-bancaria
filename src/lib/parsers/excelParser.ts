@@ -136,6 +136,9 @@ export class ArgentinaExcelParser {
   }
   
   private parseVentas(headers: any[], rows: any[]): any[] {
+    console.log('🔍 HEADERS VENTAS:', headers);
+    console.log('🔍 PRIMERAS 3 FILAS:', rows.slice(0, 3));
+    
     const columnMap = {
       fecha: this.findColumnIndex(headers, ['fecha']),
       tipo: this.findColumnIndex(headers, ['tipo']),
@@ -149,6 +152,7 @@ export class ArgentinaExcelParser {
     };
     
     console.log('📍 Mapeo de columnas VENTAS:', columnMap);
+    console.log('📍 Columna TOTAL encontrada en índice:', columnMap.total);
     
     const ventas = [];
     for (let i = 0; i < rows.length; i++) {

@@ -350,8 +350,10 @@ export class MultiBankReconciliationOrchestrator {
    */
   private async parseVentas(file: File): Promise<VentaCanon[]> {
     const extension = file.name.split('.').pop()?.toLowerCase()
+    console.log(`🔍 PARSING VENTAS - Archivo: ${file.name}, Extensión: ${extension}`)
     
     if (extension === 'csv') {
+      console.log('📄 Usando parser CSV para ventas')
       const Papa = await import('papaparse')
       return new Promise((resolve, reject) => {
         Papa.parse(file, {
@@ -381,8 +383,10 @@ export class MultiBankReconciliationOrchestrator {
         })
       })
     } else if (extension === 'xlsx' || extension === 'xls') {
+      console.log('📊 Usando parser Excel para ventas')
       return this.parseExcelVentas(file)
     } else {
+      console.error(`❌ Formato de archivo no soportado: ${extension}`)
       throw new Error(`Formato de archivo no soportado: ${extension}`)
     }
   }
