@@ -322,7 +322,7 @@ export default function NextBankPage() {
               className="w-full p-2 border border-gray-300 rounded-lg"
             >
               {BANCOS.map(b => (
-                <option key={b} value={b}>{b}</option>
+                <option key={b.id} value={b.nombre}>{b.nombre}</option>
               ))}
             </select>
           </div>
