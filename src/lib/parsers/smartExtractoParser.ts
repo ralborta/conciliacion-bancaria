@@ -33,7 +33,7 @@ export class SmartExtractoParser {
     return this.parseByFormat(formato, headers, dataRows);
   }
   
-  private detectFormat(headers: any[]): 'formato1' | 'formato2' | 'formato3' {
+  private detectFormat(headers: any[]): 'formato1' | 'formato2' | 'formato3' | 'formato4' {
     const headerStr = headers.map(h => String(h || '').toLowerCase()).join('|');
     
     console.log('🔍 Analizando headers:', headerStr);
@@ -51,6 +51,11 @@ export class SmartExtractoParser {
     // FORMATO 3: Fecha, Concepto, Importe, Fecha Valor, Saldo
     if (headerStr.includes('importe') && !headerStr.includes('débito') && !headerStr.includes('crédito')) {
       return 'formato3';
+    }
+    
+    // FORMATO 4: fecha, comprobante, movimiento, debito, credito, saldo (formato personalizado)
+    if (headerStr.includes('debito') && headerStr.includes('credito') && headerStr.includes('movimiento')) {
+      return 'formato4';
     }
     
     // Fallback: intentar detectar por posición de columnas
@@ -71,6 +76,8 @@ export class SmartExtractoParser {
         return this.parseFormato2(headers, dataRows);
       case 'formato3':
         return this.parseFormato3(headers, dataRows);
+      case 'formato4':
+        return this.parseFormato4(headers, dataRows);
       default:
         return this.parseFormato3(headers, dataRows);
     }
@@ -194,6 +201,48 @@ export class SmartExtractoParser {
     }
     
     console.log(`✅ Total MOVIMIENTOS Formato 3: ${movimientos.length}`);
+    return movimientos;
+  }
+  
+  private parseFormato4(headers: any[], dataRows: any[]): any[] {
+    console.log('📊 Parseando FORMATO 4: fecha, comprobante, movimiento, debito, credito, saldo');
+    
+    const movimientos = [];
+    for (let i = 0; i < dataRows.length; i++) {
+      const row = dataRows[i];
+      
+      if (!row || !Array.isArray(row) || row.length < 6) continue;
+      if (!row[0] || (row[3] === null && row[4] === null)) continue;
+      
+      const debito = this.parseNumber(row[3]) || 0;
+      const credito = this.parseNumber(row[4]) || 0;
+      const importe = credito - debito; // Crédito - Débito
+      
+      if (importe !== 0) {
+        const mov = {
+          fecha: this.parseDate(row[0]),
+          concepto: row[2] || '',
+          importe: importe,
+          fechaValor: null,
+          saldo: row[5] !== undefined ? this.parseNumber(row[5]) : 0,
+          cuenta: '',
+          comprobante: row[1] || ''
+        };
+        
+        movimientos.push(mov);
+        
+        if (movimientos.length <= 3) {
+          console.log(`Movimiento ${movimientos.length}:`, {
+            fecha: mov.fecha.toLocaleDateString('es-AR'),
+            concepto: mov.concepto.substring(0, 30),
+            importe: mov.importe,
+            tipo: importe > 0 ? 'CRÉDITO' : 'DÉBITO'
+          });
+        }
+      }
+    }
+    
+    console.log(`✅ Total MOVIMIENTOS Formato 4: ${movimientos.length}`);
     return movimientos;
   }
   

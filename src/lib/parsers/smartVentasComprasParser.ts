@@ -239,7 +239,14 @@ export class SmartVentasComprasParser {
   private parseDate(value: any): Date {
     if (!value) return new Date();
     if (value instanceof Date) return value;
-    if (typeof value === 'number') return this.excelDateToJS(value);
+    
+    // Si es número de Excel (como 45838)
+    if (typeof value === 'number') {
+      const date = this.excelDateToJS(value);
+      console.log(`✅ Fecha Excel parseada: ${value} -> ${date.toLocaleDateString('es-AR')}`);
+      return date;
+    }
+    
     if (typeof value === 'string') {
       // Formato DD/MM/YYYY
       if (value.includes('/')) {
