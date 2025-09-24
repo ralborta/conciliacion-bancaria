@@ -190,7 +190,7 @@ export async function POST(req: NextRequest) {
     })
 
     // CONSOLIDAR resultados
-    const consolidatedResult = {
+    const consolidatedResult: any = {
       // Mantener datos originales
       ventas: previousResults.ventas,
       compras: previousResults.compras,
