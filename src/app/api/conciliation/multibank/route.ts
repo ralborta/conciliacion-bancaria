@@ -363,7 +363,16 @@ function updateMovements(previousMovements: any[], newMovements: any[], banco: s
           ...updated[index],
           estado: 'conciliado',
           conciliadoConBanco: banco,
-          matchingDetails: newMov.matchingDetails || updated[index].matchingDetails
+          matchingDetails: newMov.matchingDetails || updated[index].matchingDetails,
+          // Enriquecer con detalle/identificadores si vienen en el nuevo movimiento
+          concepto: newMov.concepto || updated[index].concepto,
+          referencia: newMov.referencia || updated[index].referencia,
+          banco: updated[index].banco || newMov.banco || banco,
+          cuenta: updated[index].cuenta || newMov.cuenta || updated[index].cuenta,
+          // Mantener número si viene del nuevo movimiento (más confiable)
+          numero: getNumero(newMov) || updated[index].numero,
+          fecha: getFecha(newMov) || updated[index].fecha,
+          monto: (newMov.monto ?? updated[index].monto)
         }
       }
     }
