@@ -228,12 +228,15 @@ export async function POST(req: NextRequest) {
       compras: previousResults.compras,
       
       // Actualizar totales
-      totalMovimientos: previousResults.totalMovimientos,
+      totalMovimientos: (previousResults.totalMovimientos || 0) + (newResult.totalMovimientos || (newResult.movements?.length || 0)),
       conciliados: previousResults.conciliados + (newResult.conciliados || 0),
       pendientes: Math.max(0, previousResults.pendientes - (newResult.conciliados || 0)),
       
       // Actualizar movements
-      movements: updateMovements(previousResults.movements || [], newResult.movements || [], banco),
+      movements: [
+        ...updateMovements(previousResults.movements || [], newResult.movements || [], banco),
+        ...normalizeNewMovements(newResult.movements || [], banco)
+      ],
       
       // Otros datos (concatenar)
       impuestos: [
@@ -385,6 +388,23 @@ function updateMovements(previousMovements: any[], newMovements: any[], banco: s
   })
 
   return updated
+}
+
+// Normalizar movimientos nuevos que no existían en previous (para que muestren concepto/estado)
+function normalizeNewMovements(newMovements: any[], banco: string) {
+  return (newMovements || []).filter(Boolean).map((m: any, idx: number) => ({
+    id: m.id || `new_${idx}`,
+    fecha: m.fecha || m.matchingDetails?.documentoInfo?.fecha || new Date().toISOString().split('T')[0],
+    concepto: m.concepto || m.matchingDetails?.documentoInfo?.concepto || 'Movimiento',
+    monto: m.monto ?? m.matchingDetails?.documentoInfo?.monto ?? 0,
+    tipo: m.tipo || ((m.monto ?? 0) >= 0 ? 'Crédito' : 'Débito'),
+    estado: m.estado || 'pending',
+    reason: m.reason || undefined,
+    referencia: m.referencia || m.matchingDetails?.documentoInfo?.numero || undefined,
+    banco: m.banco || banco,
+    cuenta: m.cuenta || 'Cuenta Principal',
+    matchingDetails: m.matchingDetails || undefined
+  }))
 }
 
 // Agregar/Acumular resumen de asientos contables
