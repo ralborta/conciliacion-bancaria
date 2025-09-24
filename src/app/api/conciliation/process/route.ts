@@ -236,16 +236,23 @@ export async function POST(request: NextRequest) {
         movements: extractoNormalizado.slice(0, 50).map((mov, index) => {
           // Buscar el resultado del matching para este movimiento
           const matchResult = resultado?.find((r: any) => r.extractoItem.id === mov.id);
+
+          // Normalizar concepto: tratar '-' y '—' como vacío y aplicar fallbacks
+          const rawConcept = (mov.concepto as string | undefined) || undefined;
+          const isBlank = !rawConcept || rawConcept.trim() === '' || rawConcept.trim() === '-' || rawConcept.trim() === '—';
+          const concepto = isBlank
+            ? ((matchResult?.matchedWith as any)?.concepto || `Movimiento ${index + 1}`)
+            : rawConcept;
           
           return {
             id: `mov_${index}`,
             fecha: mov.fechaOperacion?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0],
-            concepto: mov.concepto || `Movimiento ${index + 1}`,
+            concepto,
             monto: mov.importe || 0,
             tipo: (mov.importe || 0) > 0 ? 'Crédito' : 'Débito',
             estado: matchResult ? (matchResult.status === 'matched' ? 'conciliado' : 'pending') : 'pending',
             reason: matchResult?.reason || 'Sin procesar',
-            referencia: `REF-${index}`,
+            referencia: (matchResult?.matchedWith as any)?.numero || `MOV-${index}`,
             banco: mov.banco || banco,
             cuenta: mov.cuenta || 'Cuenta Principal',
             // Información de matching para comparación
