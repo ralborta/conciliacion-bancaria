@@ -471,25 +471,30 @@ function ResultsContent() {
         <div className="bg-white rounded shadow p-4">
           <h3 className="text-lg font-bold mb-4">Movimientos Bancarios ({data.movements.length})</h3>
           <div className="space-y-2">
-            {data.movements.slice(0, 20).map((mov: any, i: number) => (
-              <CollapsibleMovement 
-                key={i} 
-                movement={{
-                  fecha: mov.fecha,
-                  concepto: mov.concepto,
-                  monto: mov.monto || 0,
-                  tipo: mov.tipo,
-                  estado: mov.estado,
-                  reason: (mov as any).reason,
-                  referencia: mov.referencia,
-                  banco: mov.banco,
-                  cuenta: mov.cuenta,
-                  onConciliate: handleManualConciliation,
-                  matchingDetails: (mov as any).matchingDetails
-                }}
-                index={i}
-              />
-            ))}
+            {data.movements.slice(0, 20).map((mov: any, i: number) => {
+              const concepto = mov.concepto || (mov.matchingDetails?.matchedWith as any)?.concepto || mov.referencia || '—';
+              const tipo = mov.tipo || ((mov.monto ?? 0) >= 0 ? 'Crédito' : 'Débito');
+              const estado = mov.estado || (mov.matchingDetails?.matchedWith ? 'conciliado' : 'pending');
+              return (
+                <CollapsibleMovement 
+                  key={i} 
+                  movement={{
+                    fecha: mov.fecha,
+                    concepto,
+                    monto: mov.monto || 0,
+                    tipo,
+                    estado,
+                    reason: (mov as any).reason,
+                    referencia: mov.referencia,
+                    banco: mov.banco,
+                    cuenta: mov.cuenta,
+                    onConciliate: handleManualConciliation,
+                    matchingDetails: (mov as any).matchingDetails
+                  }}
+                  index={i}
+                />
+              )
+            })}
           </div>
         </div>
       )}
