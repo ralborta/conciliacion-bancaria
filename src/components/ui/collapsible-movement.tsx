@@ -39,6 +39,9 @@ export default function CollapsibleMovement({ movement, index }: CollapsibleMove
   const conceptoDisplay =
     movement.concepto ||
     (movement.matchingDetails?.matchedWith as any)?.concepto ||
+    (movement as any).descripcion ||
+    (movement as any).detalle ||
+    (movement as any).concept ||
     movement.referencia ||
     '—';
 
