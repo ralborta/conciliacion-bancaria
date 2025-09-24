@@ -274,11 +274,17 @@ export async function POST(req: NextRequest) {
     }
 
     // Completar campos faltantes en movimientos (concepto, estado, tipo, fecha)
-    consolidatedResult.movements = (consolidatedResult.movements || []).map((m: any) => {
+    consolidatedResult.movements = (consolidatedResult.movements || []).map((m: any, idx: number) => {
       const conceptoRaw = m.concepto as string | undefined
       const conceptoBlank = !conceptoRaw || conceptoRaw.trim() === '' || conceptoRaw.trim() === '-' || conceptoRaw.trim() === '—'
       const concepto = conceptoBlank
-        ? (m?.matchingDetails?.documentoInfo?.concepto || m?.matchingDetails?.matchedWith?.concepto || (m as any).descripcion || (m as any).detalle || (m as any).concept || m.referencia || '—')
+        ? (m?.matchingDetails?.documentoInfo?.concepto 
+          || m?.matchingDetails?.matchedWith?.concepto 
+          || (m as any).descripcion 
+          || (m as any).detalle 
+          || (m as any).concept 
+          || m.referencia 
+          || (m.tipo && (m.monto !== undefined) ? `${m.tipo} $${Math.abs(Number(m.monto)).toFixed(2)}` : `Movimiento ${idx + 1}`))
         : conceptoRaw
       return {
         ...m,
