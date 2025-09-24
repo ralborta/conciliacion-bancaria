@@ -94,8 +94,22 @@ export async function POST(req) {
     }
     
     // Guardar resultado acumulado
+    // Normalizar conceptos del primer banco (evitar '-')
+    const normalizeMovements = (arr) => {
+      if (!Array.isArray(arr)) return arr
+      return arr.map((m, idx) => {
+        const raw = (m?.concepto ?? '').toString().trim()
+        const blank = !raw || raw === '-' || raw === '—'
+        const concepto = blank
+          ? (m?.matchingDetails?.documentoInfo?.concepto || m?.matchingDetails?.matchedWith?.concepto || m?.descripcion || m?.detalle || m?.concept || m?.referencia || `Movimiento ${idx + 1}`)
+          : raw
+        return { ...m, concepto }
+      })
+    }
+
     let consolidado = {
       ...result.data,
+      movements: normalizeMovements(result.data?.movements),
       bankSteps: [{
         banco: extractos[0].banco,
         conciliadas: result.data.conciliados || 0,
@@ -205,6 +219,8 @@ export async function POST(req) {
             result.data.movements,
             banco.banco
           )
+          // Normalizar conceptos en acumulado
+          consolidado.movements = normalizeMovements(consolidado.movements)
         }
         
         // Combinar asientos
@@ -259,6 +275,9 @@ export async function POST(req) {
       porcentaje: consolidado.porcentajeConciliado + '%'
     })
     
+    // Normalización final por las dudas
+    consolidado.movements = normalizeMovements(consolidado.movements)
+
     return NextResponse.json({
       success: true,
       data: consolidado,
