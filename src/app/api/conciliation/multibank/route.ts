@@ -213,8 +213,10 @@ export async function POST(req: NextRequest) {
           processedAt: previousResults.processedAt || new Date().toISOString(),
           matchedCount: previousResults.conciliados || 0,
           pendingCount: previousResults.pendientes || 0,
-          totalVentas: previousResults.totalVentas || 0,
-          totalCompras: previousResults.totalCompras || 0
+          ventasConciliadas: 0,
+          comprasConciliadas: 0,
+          totalVentas: (previousResults.ventas?.length) || previousResults.totalVentas || 0,
+          totalCompras: (previousResults.compras?.length) || previousResults.totalCompras || 0
         }]
 
     const consolidatedResult: any = {
@@ -254,8 +256,10 @@ export async function POST(req: NextRequest) {
           processedAt: new Date().toISOString(),
           matchedCount: newResult.conciliados || 0,
           pendingCount: newResult.pendientes || 0,
-          ventasProcesadas: ventasPendientes.length,
-          comprasProcesadas: comprasPendientes.length
+          ventasConciliadas: (newResult.movements || []).filter((m: any) => (m.tipo === 'venta') && (m.estado === 'conciliado' || m.estado === 'matched')).length,
+          comprasConciliadas: (newResult.movements || []).filter((m: any) => (m.tipo === 'compra') && (m.estado === 'conciliado' || m.estado === 'matched')).length,
+          totalVentas: ventasPendientes.length + ((previousResults.ventas?.length || 0) - ventasPendientes.length),
+          totalCompras: comprasPendientes.length + ((previousResults.compras?.length || 0) - comprasPendientes.length)
         }
       ]
     }
@@ -330,24 +334,41 @@ function createCSVContent(items: any[], tipo: 'ventas' | 'compras'): string {
 // Función para actualizar movements
 function updateMovements(previousMovements: any[], newMovements: any[], banco: string): any[] {
   const updated = [...previousMovements]
-  
+
+  const getNumero = (m: any) => m?.numero || m?.matchingDetails?.documentoInfo?.numero || m?.documentoInfo?.numero || null
+  const getFecha = (m: any) => m?.fecha || m?.matchingDetails?.documentoInfo?.fecha || null
+  const getMonto = (m: any) => m?.monto ?? m?.matchingDetails?.documentoInfo?.monto ?? null
+
   newMovements.forEach(newMov => {
     if (newMov.estado === 'conciliado' || newMov.estado === 'matched') {
-      const index = updated.findIndex(mov => 
-        mov.tipo === newMov.tipo && 
-        mov.numero === newMov.numero
-      )
-      
+      const newNum = getNumero(newMov)
+      const newFecha = getFecha(newMov)
+      const newMonto = getMonto(newMov)
+
+      const index = updated.findIndex(mov => {
+        if (mov.tipo !== newMov.tipo) return false
+        const oldNum = getNumero(mov)
+        if (oldNum && newNum) return oldNum === newNum
+
+        // Fallback por fecha + monto (tolerancia centavos)
+        const oldFecha = getFecha(mov)
+        const oldMonto = getMonto(mov)
+        const sameMonto = oldMonto !== null && newMonto !== null && Math.abs(Number(oldMonto) - Number(newMonto)) < 0.01
+        const sameFecha = !!oldFecha && !!newFecha && String(oldFecha) === String(newFecha)
+        return sameMonto && sameFecha
+      })
+
       if (index >= 0) {
         updated[index] = {
           ...updated[index],
           estado: 'conciliado',
-          conciliadoConBanco: banco
+          conciliadoConBanco: banco,
+          matchingDetails: newMov.matchingDetails || updated[index].matchingDetails
         }
       }
     }
   })
-  
+
   return updated
 }
 
