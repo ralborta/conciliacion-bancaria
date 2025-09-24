@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { ProcessingStep } from '@/lib/types/conciliacion'
 
 interface ProcessingModalProps {
@@ -24,7 +24,6 @@ export default function ProcessingModal({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
-        <DialogTitle className="sr-only">Procesando conciliación</DialogTitle>
         <div className="text-center">
           <div className="text-5xl mb-4 animate-spin">⚙️</div>
           <h3 className="text-xl font-semibold mb-2">Procesando Conciliación</h3>

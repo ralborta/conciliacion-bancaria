@@ -168,7 +168,7 @@ export default function NextBankPage() {
         previousConciliados: multiBankData?.conciliados
       })
       
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://conciliacion-bancaria-production.up.railway.app'
+      const apiUrl = getProductionApiUrl()
       const response = await fetch(`${apiUrl}/api/conciliation/multibank`, {
         method: 'POST',
         body: multiBankFormData
@@ -238,6 +238,22 @@ export default function NextBankPage() {
     } finally {
       setIsProcessing(false)
     }
+  }
+
+  // Obtener URL de producción
+  const getProductionApiUrl = (): string => {
+    // En cliente, usar variables públicas; como último recurso, mismo origen
+    if (typeof window !== 'undefined') {
+      return (
+        process.env.NEXT_PUBLIC_PRODUCTION_API_URL ||
+        process.env.NEXT_PUBLIC_RAILWAY_URL ||
+        (process.env.NEXT_PUBLIC_VERCEL_URL ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}` : '') ||
+        process.env.NEXT_PUBLIC_APP_URL ||
+        window.location.origin
+      )
+    }
+    // SSR fallback (poco probable en esta página cliente)
+    return process.env.PRODUCTION_API_URL || 'https://conciliacion-bancaria-production.up.railway.app'
   }
 
   return (

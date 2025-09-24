@@ -1,6 +1,17 @@
 // app/api/conciliation/multibank/route.ts - VERSIÓN CORREGIDA
 import { NextRequest, NextResponse } from 'next/server'
 
+// CORS headers para producción
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+}
+
+export async function OPTIONS() {
+  return NextResponse.json({}, { headers: corsHeaders })
+}
+
 export async function POST(req: NextRequest) {
   try {
     console.log('🏦 API Multi-Banco - Iniciando proceso')
@@ -19,7 +30,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         success: false,
         error: 'Faltan datos requeridos'
-      })
+      }, { status: 400, headers: corsHeaders })
     }
 
     console.log('📊 Datos recibidos:', {
@@ -45,7 +56,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         success: false,
         error: 'Los resultados previos no contienen ventas y compras originales'
-      })
+      }, { status: 400, headers: corsHeaders })
     }
 
     // Si no hay pendientes, retornar inmediatamente
@@ -69,7 +80,7 @@ export async function POST(req: NextRequest) {
           ]
         },
         sessionId: `multibank_${Date.now()}`
-      })
+      }, { headers: corsHeaders })
     }
 
     // Filtrar las transacciones NO conciliadas
@@ -136,7 +147,7 @@ export async function POST(req: NextRequest) {
           ]
         },
         sessionId: `multibank_${Date.now()}`
-      })
+      }, { headers: corsHeaders })
     }
 
     // Crear CSV con las pendientes
@@ -161,9 +172,7 @@ export async function POST(req: NextRequest) {
     // Llamar al motor de conciliación existente
     console.log('🚀 Llamando al motor de conciliación...')
     
-    const apiUrl = process.env.NODE_ENV === 'production' 
-      ? 'https://conciliacion-bancaria-production.up.railway.app'
-      : 'http://localhost:3000'
+    const apiUrl = getProductionApiUrl(req)
     
     const engineResponse = await fetch(`${apiUrl}/api/conciliation/process`, {
       method: 'POST',
@@ -245,14 +254,14 @@ export async function POST(req: NextRequest) {
       success: true,
       data: consolidatedResult,
       sessionId: `multibank_${Date.now()}`
-    })
+    }, { headers: corsHeaders })
 
   } catch (error) {
     console.error('❌ Error en API multi-banco:', error)
     return NextResponse.json({
       success: false,
       error: error instanceof Error ? error.message : 'Error interno del servidor'
-    }, { status: 500 })
+    }, { status: 500, headers: corsHeaders })
   }
 }
 
@@ -312,4 +321,28 @@ function updateMovements(previousMovements: any[], newMovements: any[], banco: s
   })
   
   return updated
+}
+
+// Helper: construir URL base de API según entorno (Vercel/Railway) con fallback por headers
+function getProductionApiUrl(req: NextRequest): string {
+  // Railway (algunas plantillas)
+  if (process.env.RAILWAY_STATIC_URL) return process.env.RAILWAY_STATIC_URL
+  if (process.env.RAILWAY_PUBLIC_DOMAIN) return `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+  if (process.env.RAILWAY_URL) return process.env.RAILWAY_URL
+
+  // Vercel (no incluye protocolo)
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`
+
+  // URL explícita de producción
+  if (process.env.PRODUCTION_API_URL) return process.env.PRODUCTION_API_URL
+
+  // Fallback a host de la request (mismo dominio)
+  const host = req.headers.get('x-forwarded-host') || req.headers.get('host')
+  const proto = req.headers.get('x-forwarded-proto') || 'https'
+  if (host) return `${proto}://${host}`
+
+  // Local/dev
+  return process.env.NODE_ENV === 'production'
+    ? 'https://conciliacion-bancaria-production.up.railway.app'
+    : 'http://localhost:3000'
 }
