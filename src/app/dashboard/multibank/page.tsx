@@ -170,12 +170,6 @@ export default function MultiBankPage() {
       
       await new Promise(resolve => setTimeout(resolve, 500))
       
-      // Hotfix: guardar en localStorage para asegurar que la página de resultados vea datos
-      try {
-        localStorage.setItem('conciliationData', JSON.stringify(result.data))
-        localStorage.setItem('currentSessionId', result.sessionId)
-      } catch {}
-
       setProcessingSteps(prev => prev.map(s => ({ ...s, status: 'completed' })))
       
       // Navegar a resultados
