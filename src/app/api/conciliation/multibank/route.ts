@@ -174,9 +174,14 @@ export async function POST(req: NextRequest) {
     
     const apiUrl = getProductionApiUrl(req)
     
-    const engineResponse = await fetch(`${apiUrl}/api/conciliation/process`, {
+    const processUrl = new URL('/api/conciliation/process', req.url)
+    const engineResponse = await fetch(processUrl.toString(), {
       method: 'POST',
-      body: engineFormData
+      body: engineFormData,
+      headers: {
+        cookie: req.headers.get('cookie') || '',
+        authorization: req.headers.get('authorization') || ''
+      }
     })
     
     if (!engineResponse.ok) {

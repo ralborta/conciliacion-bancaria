@@ -63,9 +63,15 @@ export async function POST(req) {
     // URL del motor de conciliación
     const apiUrl = 'https://conciliacion-bancaria-production.up.railway.app'
     
-    let response = await fetch(`${apiUrl}/api/conciliation/process`, {
+    const processUrl1 = new URL('/api/conciliation/process', req.url)
+    let response = await fetch(processUrl1.toString(), {
       method: 'POST',
-      body: firstFormData
+      body: firstFormData,
+      headers: {
+        // reenviar cookies/autorización para entornos protegidos (Vercel)
+        cookie: req.headers.get('cookie') || '',
+        authorization: req.headers.get('authorization') || ''
+      }
     })
     
     if (!response.ok) {
@@ -156,9 +162,14 @@ export async function POST(req) {
       
       // Procesar
       try {
-        response = await fetch(`${apiUrl}/api/conciliation/process`, {
+        const processUrlN = new URL('/api/conciliation/process', req.url)
+        response = await fetch(processUrlN.toString(), {
           method: 'POST',
-          body: nextFormData
+          body: nextFormData,
+          headers: {
+            cookie: req.headers.get('cookie') || '',
+            authorization: req.headers.get('authorization') || ''
+          }
         })
         
         if (!response.ok) {
