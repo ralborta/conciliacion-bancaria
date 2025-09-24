@@ -273,6 +273,15 @@ export async function POST(req: NextRequest) {
       ]
     }
 
+    // Completar campos faltantes en movimientos (concepto, estado, tipo, fecha)
+    consolidatedResult.movements = (consolidatedResult.movements || []).map((m: any) => ({
+      ...m,
+      concepto: m.concepto || m?.matchingDetails?.documentoInfo?.concepto || m?.matchingDetails?.matchedWith?.concepto || '—',
+      estado: m.estado || (m?.matchingDetails?.matchedWith ? 'conciliado' : 'pending'),
+      tipo: m.tipo || ((m.monto ?? 0) >= 0 ? 'Crédito' : 'Débito'),
+      fecha: m.fecha || m?.matchingDetails?.documentoInfo?.fecha || new Date().toISOString().split('T')[0],
+    }))
+
     // Calcular porcentaje
     consolidatedResult.porcentajeConciliado = consolidatedResult.totalMovimientos > 0 
       ? Math.round((consolidatedResult.conciliados / consolidatedResult.totalMovimientos) * 100)
