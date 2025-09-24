@@ -235,12 +235,28 @@ export default function DashboardPage() {
       {/* Upload Section */}
       <div className="bg-white rounded-xl p-8 shadow-sm">
         <div className="mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">
-            Importar Archivos para Conciliación
-          </h2>
-          <p className="text-gray-500 text-sm">
-            Carga los archivos de ventas, compras y extracto bancario para iniciar el proceso de conciliación automática
-          </p>
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                Importar Archivos para Conciliación
+              </h2>
+              <p className="text-gray-500 text-sm">
+                Carga los archivos de ventas, compras y extracto bancario para iniciar el proceso de conciliación automática
+              </p>
+            </div>
+            <Button
+              onClick={() => router.push('/dashboard/multibank')}
+              variant="outline"
+              className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white border-0"
+            >
+              🏦 Multi-Banco
+            </Button>
+          </div>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-blue-800 text-sm">
+              <strong>💡 Nueva funcionalidad:</strong> ¿Tienes múltiples bancos? Usa la opción <strong>Multi-Banco</strong> para procesar hasta 10 extractos bancarios en una sola operación.
+            </p>
+          </div>
         </div>
 
         {/* Upload Grid */}
