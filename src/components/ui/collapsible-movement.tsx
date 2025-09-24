@@ -38,7 +38,7 @@ export default function CollapsibleMovement({ movement, index }: CollapsibleMove
   // Fallback de concepto para asegurar visualización
   const conceptoDisplay =
     movement.concepto ||
-    movement.matchingDetails?.documentoInfo?.concepto ||
+    (movement.matchingDetails?.matchedWith as any)?.concepto ||
     movement.referencia ||
     '—';
 
