@@ -408,19 +408,23 @@ function updateMovements(previousMovements: any[], newMovements: any[], banco: s
 
 // Normalizar movimientos nuevos que no existían en previous (para que muestren concepto/estado)
 function normalizeNewMovements(newMovements: any[], banco: string) {
-  return (newMovements || []).filter(Boolean).map((m: any, idx: number) => ({
-    id: m.id || `new_${idx}`,
-    fecha: m.fecha || m.matchingDetails?.documentoInfo?.fecha || new Date().toISOString().split('T')[0],
-    concepto: m.concepto || m.matchingDetails?.documentoInfo?.concepto || 'Movimiento',
-    monto: m.monto ?? m.matchingDetails?.documentoInfo?.monto ?? 0,
-    tipo: m.tipo || ((m.monto ?? 0) >= 0 ? 'Crédito' : 'Débito'),
-    estado: m.estado || 'pending',
-    reason: m.reason || undefined,
-    referencia: m.referencia || m.matchingDetails?.documentoInfo?.numero || undefined,
-    banco: m.banco || banco,
-    cuenta: m.cuenta || 'Cuenta Principal',
-    matchingDetails: m.matchingDetails || undefined
-  }))
+  return (newMovements || []).filter(Boolean).map((m: any, idx: number) => {
+    const rawConcept = (m.concepto as string | undefined) || (m.matchingDetails?.documentoInfo?.concepto as string | undefined)
+    const conceptBlank = !rawConcept || rawConcept.trim() === '' || rawConcept.trim() === '-' || rawConcept.trim() === '—'
+    return {
+      id: m.id || `new_${idx}`,
+      fecha: m.fecha || m.matchingDetails?.documentoInfo?.fecha || new Date().toISOString().split('T')[0],
+      concepto: conceptBlank ? (m.referencia || 'Movimiento') : rawConcept,
+      monto: m.monto ?? m.matchingDetails?.documentoInfo?.monto ?? 0,
+      tipo: m.tipo || ((m.monto ?? 0) >= 0 ? 'Crédito' : 'Débito'),
+      estado: m.estado || 'pending',
+      reason: m.reason || undefined,
+      referencia: m.referencia || m.matchingDetails?.documentoInfo?.numero || undefined,
+      banco: m.banco || banco,
+      cuenta: m.cuenta || 'Cuenta Principal',
+      matchingDetails: m.matchingDetails || undefined
+    }
+  })
 }
 
 // Agregar/Acumular resumen de asientos contables
