@@ -230,7 +230,11 @@ function ResultsContent() {
             <button
               onClick={async () => {
                 try {
-                  const res = await fetch(`/api/conciliation/export/${sessionId}?mode=conciliados`)
+                  const res = await fetch(`/api/conciliation/export`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mode: 'conciliados', data })
+                  })
                   if (!res.ok) throw new Error('Error exportando conciliados')
                   const blob = await res.blob()
                   const url = window.URL.createObjectURL(blob)
