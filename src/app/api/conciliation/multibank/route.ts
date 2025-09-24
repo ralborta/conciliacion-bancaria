@@ -30,67 +30,32 @@ export async function POST(req: NextRequest) {
 
     // Parsear resultados del banco anterior
     const previousResults = JSON.parse(previousResultsJson)
+    
     console.log('🔍 Resultados previos:', {
       conciliados: previousResults.conciliados,
       pendientes: previousResults.pendientes,
-      movimientos: previousResults.movements?.length,
-      ventas: previousResults.ventas?.length,
-      compras: previousResults.compras?.length
+      tieneVentas: !!previousResults.ventas,
+      tieneCompras: !!previousResults.compras,
+      tieneMovements: !!previousResults.movements
     })
 
-    // IMPORTANTE: Usar las ventas y compras ORIGINALES, no los movements
-    // Los movements son el resultado de la conciliación, no los datos originales
-    let ventasPendientes = []
-    let comprasPendientes = []
-
-    // Si tenemos los datos originales de ventas y compras
-    if (previousResults.ventas && previousResults.compras) {
-      // Filtrar las ventas no conciliadas
-      ventasPendientes = previousResults.ventas.filter((venta: any) => {
-        // Buscar si esta venta fue conciliada en los movements
-        const conciliada = previousResults.movements?.find((mov: any) => 
-          mov.tipo === 'venta' && 
-          mov.numero === venta.numero && 
-          (mov.estado === 'conciliado' || mov.estado === 'matched')
-        )
-        return !conciliada // Solo incluir si NO fue conciliada
+    // IMPORTANTE: Verificar que tenemos los datos necesarios
+    if (!previousResults.ventas || !previousResults.compras) {
+      console.error('❌ No hay datos de ventas/compras en resultados previos')
+      return NextResponse.json({
+        success: false,
+        error: 'Los resultados previos no contienen ventas y compras originales'
       })
-
-      // Filtrar las compras no conciliadas
-      comprasPendientes = previousResults.compras.filter((compra: any) => {
-        // Buscar si esta compra fue conciliada en los movements
-        const conciliada = previousResults.movements?.find((mov: any) => 
-          mov.tipo === 'compra' && 
-          mov.numero === compra.numero && 
-          (mov.estado === 'conciliado' || mov.estado === 'matched')
-        )
-        return !conciliada // Solo incluir si NO fue conciliada
-      })
-    } else {
-      // Fallback: intentar reconstruir desde movements
-      const movementsPendientes = previousResults.movements?.filter((mov: any) => 
-        mov.estado === 'pending' || 
-        mov.estado === 'sin conciliar' || 
-        mov.estado === 'no_matched'
-      ) || []
-
-      ventasPendientes = movementsPendientes.filter((m: any) => m.tipo === 'venta')
-      comprasPendientes = movementsPendientes.filter((m: any) => m.tipo === 'compra')
     }
 
-    console.log('📋 Transacciones pendientes encontradas:', {
-      ventasPendientes: ventasPendientes.length,
-      comprasPendientes: comprasPendientes.length
-    })
-
-    if (ventasPendientes.length === 0 && comprasPendientes.length === 0) {
-      // No hay nada que conciliar
+    // Si no hay pendientes, retornar inmediatamente
+    if (previousResults.pendientes === 0) {
+      console.log('✅ No hay pendientes para procesar')
       return NextResponse.json({
         success: true,
         data: {
           ...previousResults,
           isMultiBank: true,
-          noPendingTransactions: true,
           currentBank: banco,
           bankSteps: [
             ...(previousResults.bankSteps || []),
@@ -99,7 +64,7 @@ export async function POST(req: NextRequest) {
               processedAt: new Date().toISOString(),
               matchedCount: 0,
               pendingCount: 0,
-              message: 'No había transacciones pendientes para conciliar'
+              message: 'No había transacciones pendientes'
             }
           ]
         },
@@ -107,29 +72,85 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // Convertir transacciones pendientes a formato CSV correcto
-    const ventasCsv = convertVentasToCSV(ventasPendientes)
-    const comprasCsv = convertComprasToCSV(comprasPendientes)
-    
-    // Debug: mostrar primeras líneas del CSV
-    console.log('📄 CSV Ventas (primeras líneas):', ventasCsv.split('\n').slice(0, 3).join('\n'))
-    console.log('📄 CSV Compras (primeras líneas):', comprasCsv.split('\n').slice(0, 3).join('\n'))
-    
-    const ventasFile = new File([ventasCsv], 'ventas_pendientes.csv', { type: 'text/csv' })
-    const comprasFile = new File([comprasCsv], 'compras_pendientes.csv', { type: 'text/csv' })
+    // Filtrar las transacciones NO conciliadas
+    const ventasPendientes: any[] = []
+    const comprasPendientes: any[] = []
 
-    console.log('📄 Archivos CSV creados:', {
-      ventas: {
-        registros: ventasPendientes.length,
-        tamaño: ventasFile.size
-      },
-      compras: {
-        registros: comprasPendientes.length,
-        tamaño: comprasFile.size
+    // Filtrar ventas pendientes
+    previousResults.ventas.forEach((venta: any) => {
+      let estaConciliada = false
+      
+      if (previousResults.movements) {
+        estaConciliada = previousResults.movements.some((mov: any) => 
+          mov.tipo === 'venta' && 
+          mov.numero === venta.numero && 
+          (mov.estado === 'conciliado' || mov.estado === 'matched')
+        )
+      }
+      
+      if (!estaConciliada) {
+        ventasPendientes.push(venta)
       }
     })
 
-    // Crear FormData para usar la API existente
+    // Filtrar compras pendientes  
+    previousResults.compras.forEach((compra: any) => {
+      let estaConciliada = false
+      
+      if (previousResults.movements) {
+        estaConciliada = previousResults.movements.some((mov: any) => 
+          mov.tipo === 'compra' && 
+          mov.numero === compra.numero && 
+          (mov.estado === 'conciliado' || mov.estado === 'matched')
+        )
+      }
+      
+      if (!estaConciliada) {
+        comprasPendientes.push(compra)
+      }
+    })
+
+    console.log('📋 Transacciones pendientes encontradas:', {
+      ventasPendientes: ventasPendientes.length,
+      comprasPendientes: comprasPendientes.length,
+      totalPendientes: ventasPendientes.length + comprasPendientes.length
+    })
+
+    // Si no hay nada pendiente (verificación doble)
+    if (ventasPendientes.length === 0 && comprasPendientes.length === 0) {
+      return NextResponse.json({
+        success: true,
+        data: {
+          ...previousResults,
+          isMultiBank: true,
+          currentBank: banco,
+          bankSteps: [
+            ...(previousResults.bankSteps || []),
+            {
+              banco,
+              processedAt: new Date().toISOString(),
+              matchedCount: 0,
+              pendingCount: 0,
+              message: 'No se encontraron transacciones pendientes específicas'
+            }
+          ]
+        },
+        sessionId: `multibank_${Date.now()}`
+      })
+    }
+
+    // Crear CSV con las pendientes
+    const ventasCSV = createCSVContent(ventasPendientes, 'ventas')
+    const comprasCSV = createCSVContent(comprasPendientes, 'compras')
+    
+    console.log('📄 CSV Ventas (preview):', ventasCSV.substring(0, 200))
+    console.log('📄 CSV Compras (preview):', comprasCSV.substring(0, 200))
+    
+    // Crear archivos File
+    const ventasFile = new File([ventasCSV], 'ventas_pendientes.csv', { type: 'text/csv' })
+    const comprasFile = new File([comprasCSV], 'compras_pendientes.csv', { type: 'text/csv' })
+
+    // Crear FormData para el motor
     const engineFormData = new FormData()
     engineFormData.append('ventas', ventasFile)
     engineFormData.append('compras', comprasFile)
@@ -137,9 +158,12 @@ export async function POST(req: NextRequest) {
     engineFormData.append('banco', banco)
     engineFormData.append('periodo', periodo)
     
-    // Hacer llamada interna a la API que ya funciona
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
-    console.log('🚀 Llamando a API de conciliación:', `${apiUrl}/api/conciliation/process`)
+    // Llamar al motor de conciliación existente
+    console.log('🚀 Llamando al motor de conciliación...')
+    
+    const apiUrl = process.env.NODE_ENV === 'production' 
+      ? 'https://conciliacion-bancaria-production.up.railway.app'
+      : 'http://localhost:3000'
     
     const engineResponse = await fetch(`${apiUrl}/api/conciliation/process`, {
       method: 'POST',
@@ -148,41 +172,38 @@ export async function POST(req: NextRequest) {
     
     if (!engineResponse.ok) {
       const errorText = await engineResponse.text()
-      console.error('❌ Error en motor de conciliación:', errorText)
-      throw new Error(`Error en motor de conciliación: ${engineResponse.statusText}`)
+      console.error('❌ Error en motor:', errorText)
+      throw new Error(`Error en motor: ${engineResponse.status}`)
     }
     
     const engineResult = await engineResponse.json()
     
     if (!engineResult.success) {
-      console.error('❌ Error en resultado del motor:', engineResult.error)
       throw new Error(engineResult.error || 'Error en el motor de conciliación')
     }
     
     const newResult = engineResult.data
 
-    console.log('✅ Resultado de conciliación del segundo banco:', {
+    console.log('✅ Resultado del segundo banco:', {
       conciliados: newResult.conciliados,
-      pendientes: newResult.pendientes,
-      movimientos: newResult.movements?.length
+      pendientes: newResult.pendientes
     })
 
     // CONSOLIDAR resultados
     const consolidatedResult = {
-      // Totales consolidados
-      totalMovimientos: previousResults.totalMovimientos,
-      conciliados: previousResults.conciliados + (newResult.conciliados || 0),
-      pendientes: Math.max(0, previousResults.pendientes - (newResult.conciliados || 0)),
-      porcentajeConciliado: 0,
-      
-      // Mantener datos originales para próximas iteraciones
+      // Mantener datos originales
       ventas: previousResults.ventas,
       compras: previousResults.compras,
       
-      // Actualizar movements combinando ambos resultados
-      movements: mergeMovements(previousResults.movements, newResult.movements),
+      // Actualizar totales
+      totalMovimientos: previousResults.totalMovimientos,
+      conciliados: previousResults.conciliados + (newResult.conciliados || 0),
+      pendientes: Math.max(0, previousResults.pendientes - (newResult.conciliados || 0)),
       
-      // Datos adicionales
+      // Actualizar movements
+      movements: updateMovements(previousResults.movements || [], newResult.movements || [], banco),
+      
+      // Otros datos
       impuestos: previousResults.impuestos,
       asientos: [...(previousResults.asientos || []), ...(newResult.asientos || [])],
       
@@ -202,18 +223,18 @@ export async function POST(req: NextRequest) {
           processedAt: new Date().toISOString(),
           matchedCount: newResult.conciliados || 0,
           pendingCount: newResult.pendientes || 0,
-          ventasConciliadas: newResult.ventasConciliadas || 0,
-          comprasConciliadas: newResult.comprasConciliadas || 0
+          ventasProcesadas: ventasPendientes.length,
+          comprasProcesadas: comprasPendientes.length
         }
       ]
     }
 
-    // Calcular porcentaje consolidado
+    // Calcular porcentaje
     consolidatedResult.porcentajeConciliado = consolidatedResult.totalMovimientos > 0 
-      ? Math.round((consolidatedResult.conciliados / consolidatedResult.totalMovimientos) * 100 * 100) / 100
+      ? Math.round((consolidatedResult.conciliados / consolidatedResult.totalMovimientos) * 100)
       : 0
 
-    console.log('🎯 Resultado consolidado final:', {
+    console.log('🎯 Resultado consolidado:', {
       totalConciliados: consolidatedResult.conciliados,
       totalPendientes: consolidatedResult.pendientes,
       porcentaje: consolidatedResult.porcentajeConciliado,
@@ -235,103 +256,60 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// Helper: Convertir ventas a CSV con formato correcto
-function convertVentasToCSV(ventas: any[]): string {
-  if (!ventas || ventas.length === 0) {
-    return 'fecha,cliente,total,numero\n'
+// Función para crear CSV
+function createCSVContent(items: any[], tipo: 'ventas' | 'compras'): string {
+  if (!items || items.length === 0) {
+    // Retornar CSV vacío pero válido
+    return tipo === 'ventas' 
+      ? 'fecha,cliente,total,numero\n'
+      : 'fecha,proveedor,total,numero\n'
   }
-
-  // Headers específicos para ventas
-  const headers = ['fecha', 'cliente', 'total', 'numero']
   
-  const csvRows = [
-    headers.join(','),
-    ...ventas.map(venta => {
-      return [
-        formatDate(venta.fecha),
-        cleanString(venta.cliente || venta.razonSocial || ''),
-        formatNumber(venta.total || venta.monto || 0),
-        cleanString(venta.numero || venta.numeroFactura || '')
-      ].join(',')
+  let csv = ''
+  
+  if (tipo === 'ventas') {
+    csv = 'fecha,cliente,total,numero\n'
+    items.forEach(item => {
+      const fecha = item.fecha || ''
+      const cliente = (item.cliente || item.razonSocial || '').toString().replace(/,/g, ';')
+      const total = item.total || item.monto || '0'
+      const numero = (item.numero || item.numeroFactura || '').toString().replace(/,/g, ';')
+      csv += `${fecha},${cliente},${total},${numero}\n`
     })
-  ]
+  } else {
+    csv = 'fecha,proveedor,total,numero\n'
+    items.forEach(item => {
+      const fecha = item.fecha || ''
+      const proveedor = (item.proveedor || item.razonSocial || '').toString().replace(/,/g, ';')
+      const total = item.total || item.monto || '0'
+      const numero = (item.numero || item.numeroFactura || '').toString().replace(/,/g, ';')
+      csv += `${fecha},${proveedor},${total},${numero}\n`
+    })
+  }
   
-  return csvRows.join('\n')
+  return csv
 }
 
-// Helper: Convertir compras a CSV con formato correcto
-function convertComprasToCSV(compras: any[]): string {
-  if (!compras || compras.length === 0) {
-    return 'fecha,proveedor,total,numero\n'
-  }
-
-  // Headers específicos para compras
-  const headers = ['fecha', 'proveedor', 'total', 'numero']
+// Función para actualizar movements
+function updateMovements(previousMovements: any[], newMovements: any[], banco: string): any[] {
+  const updated = [...previousMovements]
   
-  const csvRows = [
-    headers.join(','),
-    ...compras.map(compra => {
-      return [
-        formatDate(compra.fecha),
-        cleanString(compra.proveedor || compra.razonSocial || ''),
-        formatNumber(compra.total || compra.monto || 0),
-        cleanString(compra.numero || compra.numeroFactura || '')
-      ].join(',')
-    })
-  ]
-  
-  return csvRows.join('\n')
-}
-
-// Helper: Combinar movements de ambas conciliaciones
-function mergeMovements(previousMovements: any[], newMovements: any[]): any[] {
-  if (!previousMovements) return newMovements || []
-  if (!newMovements) return previousMovements
-  
-  const merged = [...previousMovements]
-  
-  // Actualizar los movements que se conciliaron en el segundo banco
   newMovements.forEach(newMov => {
     if (newMov.estado === 'conciliado' || newMov.estado === 'matched') {
-      const index = merged.findIndex(prevMov => 
-        prevMov.tipo === newMov.tipo &&
-        prevMov.numero === newMov.numero
+      const index = updated.findIndex(mov => 
+        mov.tipo === newMov.tipo && 
+        mov.numero === newMov.numero
       )
       
       if (index >= 0) {
-        // Actualizar el movement existente
-        merged[index] = {
-          ...merged[index],
+        updated[index] = {
+          ...updated[index],
           estado: 'conciliado',
-          matchedBank: newMov.banco || 'Banco adicional',
-          matchDetails: newMov.matchDetails
+          conciliadoConBanco: banco
         }
-      } else {
-        // Agregar nuevo movement si no existía
-        merged.push(newMov)
       }
     }
   })
   
-  return merged
-}
-
-// Helpers de formato
-function formatDate(date: any): string {
-  if (!date) return ''
-  if (typeof date === 'string') return date
-  if (date instanceof Date) return date.toISOString().split('T')[0]
-  return String(date)
-}
-
-function cleanString(str: string): string {
-  if (!str) return ''
-  // Si contiene comas, envolver en comillas
-  const cleaned = String(str).trim()
-  return cleaned.includes(',') ? `"${cleaned}"` : cleaned
-}
-
-function formatNumber(num: any): string {
-  const n = parseFloat(num) || 0
-  return n.toFixed(2)
+  return updated
 }

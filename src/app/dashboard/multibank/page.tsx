@@ -132,7 +132,7 @@ export default function MultiBankPage() {
       setStatus(`Procesando ${bancosExtractos.length} bancos...`)
       
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://conciliacion-bancaria-production.up.railway.app'
-      const response = await fetch(`${apiUrl}/api/conciliation/multibank-simple`, {
+      const response = await fetch(`${apiUrl}/api/conciliation/multibank`, {
         method: 'POST',
         body: formData
       })
