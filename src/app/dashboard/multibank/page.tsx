@@ -128,11 +128,10 @@ export default function MultiBankPage() {
       })))
       setCurrentStep(1)
       
-      // Llamar a la nueva API multi-banco completa
+      // Llamar a la nueva API multi-banco completa (same-origin)
       setStatus(`Procesando ${bancosExtractos.length} bancos...`)
       
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://conciliacion-bancaria-production.up.railway.app'
-      const response = await fetch(`${apiUrl}/api/conciliation/multibank`, {
+      const response = await fetch(`/api/conciliation/multibank-simple`, {
         method: 'POST',
         body: formData
       })
@@ -261,7 +260,7 @@ export default function MultiBankPage() {
                     onFileSelect={(file) => actualizarBanco(banco.id, 'extracto', file)}
                     onFileRemove={() => actualizarBanco(banco.id, 'extracto', null)}
                     selectedFile={banco.extracto}
-                    accept=".csv,.xlsx,.xls,.pdf"
+                    accept=".csv,.xlsx,.xls"
                   />
                 </div>
                 
