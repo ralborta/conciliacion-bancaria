@@ -271,7 +271,7 @@ export async function POST(req: NextRequest) {
 
     // Totales multibanco
     consolidatedResult.totalBancos = (consolidatedResult.bankSteps || []).length
-    consolidatedResult.bancosProcesados = (consolidatedResult.bankSteps || []).map((s: any) => s.banco)
+    consolidatedResult.bancosProcesados = (consolidatedResult.bankSteps || []).map((s: any, idx: number) => `Banco #${idx+1}: ${s.banco}`)
 
     console.log('🎯 Resultado consolidado:', {
       totalConciliados: consolidatedResult.conciliados,

@@ -235,29 +235,15 @@ export default function NextBankPage() {
         }))
       )
 
-      // Marcar como multi-banco y agregar info del banco anterior
+      // Guardar exactamente lo que devuelve la API (evitar sobrescribir bankSteps)
       if (result.data) {
-        result.data.isMultiBank = true
-        result.data.previousBank = multiBankData?.banco
-        result.data.bankSteps = [
-          ...(multiBankData?.bankSteps || []),
-          {
-            banco: banco,
-            processedAt: new Date().toISOString(),
-            matchedCount: result.data.conciliados || 0,
-            pendingCount: result.data.pendientes || 0,
-            ventasConciliadas: 0, // TODO: calcular
-            totalVentas: 0, // TODO: calcular
-            comprasConciliadas: 0, // TODO: calcular
-            totalCompras: 0 // TODO: calcular
-          }
-        ]
-
-        console.log('Guardando resultados:', result.data)
-        localStorage.setItem('conciliationData', JSON.stringify(result.data))
-        localStorage.setItem('multiBankData', JSON.stringify(result.data))
-        localStorage.setItem('currentSessionId', result.sessionId)
-        localStorage.setItem('multiBankSessionId', result.sessionId)
+        console.log('Guardando resultados (API):', result.data)
+        try {
+          localStorage.setItem('conciliationData', JSON.stringify(result.data))
+          localStorage.setItem('multiBankData', JSON.stringify(result.data))
+          localStorage.setItem('currentSessionId', result.sessionId)
+          localStorage.setItem('multiBankSessionId', result.sessionId)
+        } catch {}
       }
 
       await new Promise(resolve => setTimeout(resolve, 1000))
