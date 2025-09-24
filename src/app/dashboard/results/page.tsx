@@ -220,12 +220,36 @@ function ResultsContent() {
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl text-green-600">✅ Resultados de Conciliación</h2>
         {sessionId && (
-          <DownloadButton 
-            sessionId={sessionId} 
-            variant="default"
-            size="default"
-            className="bg-green-600 hover:bg-green-700 text-white shadow-lg"
-          />
+          <div className="flex gap-3">
+            <DownloadButton 
+              sessionId={sessionId} 
+              variant="default"
+              size="default"
+              className="bg-green-600 hover:bg-green-700 text-white shadow-lg"
+            />
+            <button
+              onClick={async () => {
+                try {
+                  const res = await fetch(`/api/conciliation/export/${sessionId}?mode=conciliados`)
+                  if (!res.ok) throw new Error('Error exportando conciliados')
+                  const blob = await res.blob()
+                  const url = window.URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = `conciliados_${sessionId}.xlsx`
+                  document.body.appendChild(a)
+                  a.click()
+                  a.remove()
+                  window.URL.revokeObjectURL(url)
+                } catch (e) {
+                  alert('No se pudo descargar el reporte de conciliados')
+                }
+              }}
+              className="px-3 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              Descargar conciliados
+            </button>
+          </div>
         )}
       </div>
       

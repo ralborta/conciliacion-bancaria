@@ -54,48 +54,78 @@ export async function GET(
     
     // Create Excel workbook
     const workbook = new ExcelJS.Workbook()
-    const worksheet = workbook.addWorksheet('Conciliación Bancaria')
-    
-    // Add headers
-    worksheet.columns = [
-      { header: 'Fecha', key: 'fecha', width: 12 },
-      { header: 'Concepto', key: 'concepto', width: 30 },
-      { header: 'Monto', key: 'monto', width: 15 },
-      { header: 'Tipo', key: 'tipo', width: 10 },
-      { header: 'Estado', key: 'estado', width: 15 },
-      { header: 'Referencia', key: 'referencia', width: 20 },
-      { header: 'Score', key: 'score', width: 10 },
-      { header: 'Razón', key: 'razon', width: 30 }
-    ]
-    
-    // Style headers
-    worksheet.getRow(1).font = { bold: true }
-    worksheet.getRow(1).fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFE5E7EB' }
-    }
-    
-    // Add data rows
-    dataToExport.forEach(result => {
-      worksheet.addRow({
-        fecha: result.extractoItem.fechaOperacion.toLocaleDateString('es-AR'),
-        concepto: result.extractoItem.concepto,
-        monto: result.extractoItem.importe,
-        tipo: result.extractoItem.importe >= 0 ? 'Crédito' : 'Débito',
-        estado: result.status,
-        referencia: result.extractoItem.referencia || '',
-        score: Math.round(result.score * 100) + '%',
-        razon: result.reason || ''
+
+    const url = new URL(request.url)
+    const mode = url.searchParams.get('mode')
+
+    if (mode === 'conciliados') {
+      // Hoja solo conciliados, partiendo del extracto y mostrando contra qué se concilió
+      const ws = workbook.addWorksheet('Conciliados')
+      ws.columns = [
+        { header: 'fecha_extracto', key: 'fecha_extracto', width: 14 },
+        { header: 'tipo_extracto', key: 'tipo_extracto', width: 12 },
+        { header: 'monto_extracto', key: 'monto_extracto', width: 16 },
+        { header: 'numero_comprobante', key: 'numero_comprobante', width: 22 },
+        { header: 'tipo_contra', key: 'tipo_contra', width: 14 },
+        { header: 'fecha_comprobante', key: 'fecha_comprobante', width: 16 },
+        { header: 'monto_comprobante', key: 'monto_comprobante', width: 18 },
+        { header: 'proveedor_cliente', key: 'proveedor_cliente', width: 26 }
+      ]
+      ws.getRow(1).font = { bold: true }
+      ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE5E7EB' } }
+
+      const matched = (dataToExport || []).filter((r: any) => r?.status === 'matched')
+      matched.forEach((r: any) => {
+        const ext = r.extractoItem || {}
+        const doc = r.matchedWith || {}
+        const tipoContra = r.tipo || (doc?.tipo ? String(doc.tipo) : '')
+        const numero = (doc as any)?.numero || (doc as any)?.comprobante || ''
+        const fechaDoc = (doc as any)?.fechaEmision instanceof Date
+          ? (doc as any).fechaEmision.toLocaleDateString('es-AR')
+          : ((doc as any)?.fechaEmision ? String((doc as any).fechaEmision).toString().split('T')[0] : '')
+        const proveedorCliente = (doc as any)?.proveedor || (doc as any)?.cliente || ''
+
+        ws.addRow({
+          fecha_extracto: ext?.fechaOperacion instanceof Date
+            ? ext.fechaOperacion.toLocaleDateString('es-AR')
+            : (ext?.fechaOperacion ? String(ext.fechaOperacion).toString().split('T')[0] : ''),
+          tipo_extracto: (ext?.importe ?? 0) >= 0 ? 'Crédito' : 'Débito',
+          monto_extracto: ext?.importe ?? 0,
+          numero_comprobante: numero,
+          tipo_contra: tipoContra ? (tipoContra === 'venta' ? 'Venta' : (tipoContra === 'compra' ? 'Compra' : String(tipoContra))) : '',
+          fecha_comprobante: fechaDoc,
+          monto_comprobante: (doc as any)?.total ?? '',
+          proveedor_cliente: proveedorCliente
+        })
       })
-    })
-    
-    // Auto-fit columns
-    worksheet.columns.forEach(column => {
-      if (column.width) {
-        column.width = Math.max(column.width, 10)
-      }
-    })
+    } else {
+      // Hoja estándar (compatibilidad)
+      const worksheet = workbook.addWorksheet('Conciliación Bancaria')
+      worksheet.columns = [
+        { header: 'Fecha', key: 'fecha', width: 12 },
+        { header: 'Concepto', key: 'concepto', width: 30 },
+        { header: 'Monto', key: 'monto', width: 15 },
+        { header: 'Tipo', key: 'tipo', width: 10 },
+        { header: 'Estado', key: 'estado', width: 15 },
+        { header: 'Referencia', key: 'referencia', width: 20 },
+        { header: 'Score', key: 'score', width: 10 },
+        { header: 'Razón', key: 'razon', width: 30 }
+      ]
+      worksheet.getRow(1).font = { bold: true }
+      worksheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE5E7EB' } }
+      dataToExport.forEach((result: any) => {
+        worksheet.addRow({
+          fecha: result.extractoItem.fechaOperacion.toLocaleDateString('es-AR'),
+          concepto: result.extractoItem.concepto,
+          monto: result.extractoItem.importe,
+          tipo: result.extractoItem.importe >= 0 ? 'Crédito' : 'Débito',
+          estado: result.status,
+          referencia: result.extractoItem.referencia || '',
+          score: Math.round((result.score || 0) * 100) + '%',
+          razon: result.reason || ''
+        })
+      })
+    }
     
     // Generate buffer
     const buffer = await workbook.xlsx.writeBuffer()
