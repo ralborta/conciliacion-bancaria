@@ -35,6 +35,13 @@ interface CollapsibleMovementProps {
 export default function CollapsibleMovement({ movement, index }: CollapsibleMovementProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
+  // Fallback de concepto para asegurar visualización
+  const conceptoDisplay =
+    movement.concepto ||
+    movement.matchingDetails?.documentoInfo?.concepto ||
+    movement.referencia ||
+    '—';
+
   const getStatusColor = (estado: string) => {
     switch (estado) {
       case 'conciliado':
@@ -79,7 +86,7 @@ export default function CollapsibleMovement({ movement, index }: CollapsibleMove
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-gray-900 truncate">
-                  {movement.concepto}
+                  {conceptoDisplay}
                 </p>
               </div>
               <div className="flex-shrink-0">
@@ -128,7 +135,7 @@ export default function CollapsibleMovement({ movement, index }: CollapsibleMove
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Concepto Banco:</span>
-                  <span className="text-gray-900">{movement.concepto}</span>
+                  <span className="text-gray-900">{conceptoDisplay}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Tipo:</span>
