@@ -204,6 +204,19 @@ export async function POST(req: NextRequest) {
     })
 
     // CONSOLIDAR resultados
+    // Consolidación preservando datos del primer banco
+    const prevBankName = previousResults.banco || previousResults.currentBank
+    const seededSteps = (previousResults.bankSteps && previousResults.bankSteps.length > 0)
+      ? previousResults.bankSteps
+      : [{
+          banco: prevBankName,
+          processedAt: previousResults.processedAt || new Date().toISOString(),
+          matchedCount: previousResults.conciliados || 0,
+          pendingCount: previousResults.pendientes || 0,
+          totalVentas: previousResults.totalVentas || 0,
+          totalCompras: previousResults.totalCompras || 0
+        }]
+
     const consolidatedResult: any = {
       // Mantener datos originales
       ventas: previousResults.ventas,
@@ -217,21 +230,25 @@ export async function POST(req: NextRequest) {
       // Actualizar movements
       movements: updateMovements(previousResults.movements || [], newResult.movements || [], banco),
       
-      // Otros datos
-      impuestos: previousResults.impuestos,
-      asientos: [...(previousResults.asientos || []), ...(newResult.asientos || [])],
+      // Otros datos (concatenar)
+      impuestos: [
+        ...(previousResults.impuestos || []),
+        ...(newResult.impuestos || [])
+      ],
+      asientosContables: [
+        ...((previousResults as any).asientosContables || previousResults.asientos || []),
+        ...((newResult as any).asientosContables || newResult.asientos || [])
+      ],
+      asientosResumen: (newResult as any).asientosResumen || (previousResults as any).asientosResumen || {
+        totalAsientos: 0, totalDebe: 0, totalHaber: 0, diferencia: 0, balanceado: true, asientosPorTipo: {}
+      },
       
       // Info multi-banco
       isMultiBank: true,
       currentBank: banco,
-      previousBank: previousResults.banco,
+      previousBank: prevBankName,
       bankSteps: [
-        ...(previousResults.bankSteps || [{
-          banco: previousResults.banco,
-          processedAt: previousResults.processedAt || new Date().toISOString(),
-          matchedCount: previousResults.conciliados || 0,
-          pendingCount: previousResults.pendientes || 0
-        }]),
+        ...seededSteps,
         {
           banco,
           processedAt: new Date().toISOString(),
@@ -248,11 +265,17 @@ export async function POST(req: NextRequest) {
       ? Math.round((consolidatedResult.conciliados / consolidatedResult.totalMovimientos) * 100)
       : 0
 
+    // Totales multibanco
+    consolidatedResult.totalBancos = (consolidatedResult.bankSteps || []).length
+    consolidatedResult.bancosProcesados = (consolidatedResult.bankSteps || []).map((s: any) => s.banco)
+
     console.log('🎯 Resultado consolidado:', {
       totalConciliados: consolidatedResult.conciliados,
       totalPendientes: consolidatedResult.pendientes,
       porcentaje: consolidatedResult.porcentajeConciliado,
-      bancosProcesados: consolidatedResult.bankSteps.length
+      bancosProcesados: consolidatedResult.bankSteps.length,
+      asientos: consolidatedResult.asientosContables?.length || 0,
+      impuestos: consolidatedResult.impuestos?.length || 0
     })
 
     return NextResponse.json({
