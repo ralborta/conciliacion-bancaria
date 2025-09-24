@@ -1,7 +1,8 @@
 // app/api/conciliation/multibank-simple/route.js
 // VERSIÓN SIMPLE EN JAVASCRIPT - SIN ERRORES DE TYPES
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
+import { memoryStorage } from '@/lib/storage/memory'
 
 export async function POST(req) {
   try {
@@ -60,8 +61,8 @@ export async function POST(req) {
     firstFormData.append('banco', extractos[0].banco)
     firstFormData.append('periodo', periodo)
     
-    // URL del motor de conciliación
-    const apiUrl = 'https://conciliacion-bancaria-production.up.railway.app'
+    // URL del motor de conciliación (mismo origen si es posible)
+    const apiUrl = getApiBaseUrl(req)
     
     let response = await fetch(`${apiUrl}/api/conciliation/process`, {
       method: 'POST',
@@ -246,10 +247,44 @@ export async function POST(req) {
       porcentaje: consolidado.porcentajeConciliado + '%'
     })
     
+    // ========================================
+    // PERSISTIR RESULTADO Y RESPONDER CON SESSIONID
+    // ========================================
+    const sessionId = `multibank_${Date.now()}`
+
+    const stats = {
+      totalMovimientos: consolidado.totalMovimientos || 0,
+      conciliados: consolidado.conciliados || 0,
+      pendientes: consolidado.pendientes || 0,
+      montoTotal: (consolidado.movements || []).reduce((s, m) => s + Math.abs(m.monto || 0), 0),
+      porcentajeConciliacion: consolidado.totalMovimientos > 0
+        ? (consolidado.conciliados / consolidado.totalMovimientos) * 100
+        : 0
+    }
+
+    try {
+      await memoryStorage.saveResults(sessionId, consolidado)
+      await memoryStorage.saveStats(sessionId, stats)
+      await memoryStorage.saveSession(sessionId, {
+        banco: consolidado.bancosProcesados?.[0] || 'MultiBanco',
+        periodo,
+        createdAt: new Date(),
+        status: 'completed'
+      })
+      console.log('💾 Persistencia OK:', {
+        sessionId,
+        movements: consolidado.movements?.length || 0,
+        ventas: consolidado.ventas?.length || 0,
+        compras: consolidado.compras?.length || 0
+      })
+    } catch (persistErr) {
+      console.error('❌ Error persistiendo resultados:', persistErr)
+    }
+
     return NextResponse.json({
       success: true,
       data: consolidado,
-      sessionId: `multibank_${Date.now()}`
+      sessionId
     })
     
   } catch (error) {
@@ -358,6 +393,22 @@ function mergeMovements(current, newMovs, banco) {
   })
   
   return merged
+}
+
+// Helper: base URL del mismo origen si es posible (headers/env), fallback local
+function getApiBaseUrl(req) {
+  const headers = req.headers
+  const host = headers.get('x-forwarded-host') || headers.get('host')
+  const proto = headers.get('x-forwarded-proto') || 'https'
+  if (host) return `${proto}://${host}`
+  if (process.env.RAILWAY_STATIC_URL) return process.env.RAILWAY_STATIC_URL
+  if (process.env.RAILWAY_PUBLIC_DOMAIN) return `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+  if (process.env.RAILWAY_URL) return process.env.RAILWAY_URL
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`
+  if (process.env.PRODUCTION_API_URL) return process.env.PRODUCTION_API_URL
+  return process.env.NODE_ENV === 'production'
+    ? 'https://conciliacion-bancaria-production.up.railway.app'
+    : 'http://localhost:3000'
 }
 
 
