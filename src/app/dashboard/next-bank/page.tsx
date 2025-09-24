@@ -43,6 +43,7 @@ export default function NextBankPage() {
   const [currentStep, setCurrentStep] = useState(0)
   const [progress, setProgress] = useState(0)
   const [status, setStatus] = useState('')
+  const [error, setError] = useState<string | null>(null)
   
   const [multiBankData, setMultiBankData] = useState<any>(null)
 
@@ -71,6 +72,19 @@ export default function NextBankPage() {
 
   const processNextBank = async () => {
     if (!puedeProcesar || !extractoFile) return
+
+    // Validación de archivo de extracto
+    if (!extractoFile.file || extractoFile.file.size === 0) {
+      setError('El extracto está vacío o no se subió correctamente.')
+      return
+    }
+
+    // Si no hay pendientes, ir directo a resultados
+    if (multiBankData?.pendientes === 0) {
+      const sid = localStorage.getItem('currentSessionId') || ''
+      router.push(`/dashboard/results?sessionId=${sid}`)
+      return
+    }
 
     setIsProcessing(true)
     setCurrentStep(0)
@@ -155,12 +169,33 @@ export default function NextBankPage() {
         }))
       )
 
+      // Reducir payload de movements (solo campos necesarios)
+      const movimientosMin = (multiBankData?.movements || []).map((m: any) => ({
+        tipo: m.tipo,
+        numero: m.numero,
+        fecha: m.fecha,
+        monto: m.monto
+      }))
+
+      const previousResultsMin = {
+        ventas: multiBankData?.ventas || [],
+        compras: multiBankData?.compras || [],
+        movements: movimientosMin,
+        conciliados: multiBankData?.conciliados || 0,
+        pendientes: multiBankData?.pendientes || 0,
+        totalMovimientos: multiBankData?.totalMovimientos || 0,
+        banco: multiBankData?.banco || multiBankData?.currentBank,
+        impuestos: multiBankData?.impuestos || [],
+        asientos: multiBankData?.asientos || [],
+        bankSteps: multiBankData?.bankSteps || []
+      }
+
       // Preparar datos para API multi-banco
       const multiBankFormData = new FormData()
       multiBankFormData.append('extracto', extractoFile.file!)
       multiBankFormData.append('banco', banco)
       multiBankFormData.append('periodo', periodo)
-      multiBankFormData.append('previousResults', JSON.stringify(multiBankData))
+      multiBankFormData.append('previousResults', JSON.stringify(previousResultsMin))
 
       console.log('Llamando a API multi-banco...', {
         extracto: extractoFile.file?.name,
@@ -168,8 +203,8 @@ export default function NextBankPage() {
         previousConciliados: multiBankData?.conciliados
       })
       
-      const apiUrl = getProductionApiUrl()
-      const response = await fetch(`${apiUrl}/api/conciliation/multibank`, {
+      // Usar ruta relativa para mismo origen en Vercel
+      const response = await fetch(`/api/conciliation/multibank`, {
         method: 'POST',
         body: multiBankFormData
       })

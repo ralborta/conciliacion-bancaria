@@ -69,11 +69,12 @@ export async function POST(req) {
     })
     
     if (!response.ok) {
-      console.error('❌ Error en primer banco:', response.status)
+      const errorText = await response.text()
+      console.error('❌ Error en primer banco:', response.status, errorText)
       return NextResponse.json({
         success: false,
-        error: 'Error procesando primer banco'
-      })
+        error: `Error procesando primer banco: ${response.status} ${errorText?.slice(0,200)}`
+      }, { status: response.status })
     }
     
     let result = await response.json()
@@ -161,10 +162,11 @@ export async function POST(req) {
         })
         
         if (!response.ok) {
-          console.error(`❌ Error en banco ${i + 1}:`, response.status)
+          const errorText = await response.text()
+          console.error(`❌ Error en banco ${i + 1}:`, response.status, errorText)
           consolidado.bankSteps.push({
             banco: banco.banco,
-            error: 'Error HTTP: ' + response.status
+            error: `Error HTTP ${response.status}: ${String(errorText).slice(0,200)}`
           })
           continue
         }
