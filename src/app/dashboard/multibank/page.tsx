@@ -131,8 +131,8 @@ export default function MultiBankPage() {
       // Llamar a la nueva API multi-banco completa
       setStatus(`Procesando ${bancosExtractos.length} bancos...`)
       
-      // Llamar a la API simple multibanco usando base relativa (mismo origen)
-      const response = await fetch(`/api/conciliation/multibank-simple`, {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://conciliacion-bancaria-production.up.railway.app'
+      const response = await fetch(`${apiUrl}/api/conciliation/multibank`, {
         method: 'POST',
         body: formData
       })
@@ -169,6 +169,11 @@ export default function MultiBankPage() {
       })))
       
       await new Promise(resolve => setTimeout(resolve, 500))
+      
+      // Guardar resultados y navegar
+      localStorage.setItem('conciliationData', JSON.stringify(result.data))
+      localStorage.setItem('multiBankComplete', 'true')
+      localStorage.setItem('currentSessionId', result.sessionId)
       
       setProcessingSteps(prev => prev.map(s => ({ ...s, status: 'completed' })))
       
