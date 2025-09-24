@@ -87,16 +87,16 @@ export async function POST(req: NextRequest) {
     const ventasPendientes: any[] = []
     const comprasPendientes: any[] = []
 
-    // Filtrar ventas pendientes
+    // Filtrar ventas pendientes (usar matchingDetails.documentoInfo.numero)
     previousResults.ventas.forEach((venta: any) => {
       let estaConciliada = false
       
       if (previousResults.movements) {
-        estaConciliada = previousResults.movements.some((mov: any) => 
-          mov.tipo === 'venta' && 
-          mov.numero === venta.numero && 
-          (mov.estado === 'conciliado' || mov.estado === 'matched')
-        )
+        estaConciliada = previousResults.movements.some((mov: any) => {
+          if (!(mov.estado === 'conciliado' || mov.estado === 'matched')) return false
+          const docNum = mov?.matchingDetails?.documentoInfo?.numero || mov?.numero
+          return docNum && String(docNum) === String(venta.numero)
+        })
       }
       
       if (!estaConciliada) {
@@ -104,16 +104,16 @@ export async function POST(req: NextRequest) {
       }
     })
 
-    // Filtrar compras pendientes  
+    // Filtrar compras pendientes (usar matchingDetails.documentoInfo.numero)
     previousResults.compras.forEach((compra: any) => {
       let estaConciliada = false
       
       if (previousResults.movements) {
-        estaConciliada = previousResults.movements.some((mov: any) => 
-          mov.tipo === 'compra' && 
-          mov.numero === compra.numero && 
-          (mov.estado === 'conciliado' || mov.estado === 'matched')
-        )
+        estaConciliada = previousResults.movements.some((mov: any) => {
+          if (!(mov.estado === 'conciliado' || mov.estado === 'matched')) return false
+          const docNum = mov?.matchingDetails?.documentoInfo?.numero || mov?.numero
+          return docNum && String(docNum) === String(compra.numero)
+        })
       }
       
       if (!estaConciliada) {
@@ -219,6 +219,9 @@ export async function POST(req: NextRequest) {
           totalCompras: (previousResults.compras?.length) || previousResults.totalCompras || 0
         }]
 
+    const stepMatched = newResult.conciliados || 0
+    const stepPendingGlobal = Math.max(0, (previousResults.pendientes || 0) - stepMatched)
+
     const consolidatedResult: any = {
       // Mantener datos originales
       ventas: previousResults.ventas,
@@ -241,9 +244,12 @@ export async function POST(req: NextRequest) {
         ...((previousResults as any).asientosContables || previousResults.asientos || []),
         ...((newResult as any).asientosContables || newResult.asientos || [])
       ],
-      asientosResumen: (newResult as any).asientosResumen || (previousResults as any).asientosResumen || {
-        totalAsientos: 0, totalDebe: 0, totalHaber: 0, diferencia: 0, balanceado: true, asientosPorTipo: {}
-      },
+      asientosResumen: aggregateAsientosResumen(
+        (previousResults as any).asientosResumen,
+        (newResult as any).asientosResumen,
+        ((previousResults as any).asientosContables || previousResults.asientos || []).length,
+        ((newResult as any).asientosContables || newResult.asientos || []).length
+      ),
       
       // Info multi-banco
       isMultiBank: true,
@@ -254,8 +260,8 @@ export async function POST(req: NextRequest) {
         {
           banco,
           processedAt: new Date().toISOString(),
-          matchedCount: newResult.conciliados || 0,
-          pendingCount: newResult.pendientes || 0,
+          matchedCount: stepMatched,
+          pendingCount: stepPendingGlobal,
           ventasConciliadas: (newResult.movements || []).filter((m: any) => (m.tipo === 'venta') && (m.estado === 'conciliado' || m.estado === 'matched')).length,
           comprasConciliadas: (newResult.movements || []).filter((m: any) => (m.tipo === 'compra') && (m.estado === 'conciliado' || m.estado === 'matched')).length,
           totalVentas: ventasPendientes.length + ((previousResults.ventas?.length || 0) - ventasPendientes.length),
@@ -379,6 +385,32 @@ function updateMovements(previousMovements: any[], newMovements: any[], banco: s
   })
 
   return updated
+}
+
+// Agregar/Acumular resumen de asientos contables
+function aggregateAsientosResumen(prev: any, curr: any, prevCount: number, currCount: number) {
+  const base = {
+    totalAsientos: 0,
+    totalDebe: 0,
+    totalHaber: 0,
+    diferencia: 0,
+    balanceado: true,
+    asientosPorTipo: {} as Record<string, number>
+  }
+  const a = prev || base
+  const b = curr || base
+  const sum = {
+    totalAsientos: (a.totalAsientos || prevCount || 0) + (b.totalAsientos || currCount || 0),
+    totalDebe: (a.totalDebe || 0) + (b.totalDebe || 0),
+    totalHaber: (a.totalHaber || 0) + (b.totalHaber || 0)
+  }
+  const diferencia = (sum.totalDebe - sum.totalHaber)
+  const balanceado = Math.abs(diferencia) < 0.01
+  const tipos: Record<string, number> = { ...a.asientosPorTipo }
+  for (const [k, v] of Object.entries(b.asientosPorTipo || {})) {
+    tipos[k] = (tipos[k] || 0) + (v as number)
+  }
+  return { ...base, ...sum, diferencia, balanceado, asientosPorTipo: tipos }
 }
 
 // Helper: construir URL base de API según entorno (Vercel/Railway) con fallback por headers
